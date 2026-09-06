@@ -1,0 +1,166 @@
+{% extends "layout.html" %}
+{% block title %}分类标签{% endblock %}
+{% block content %}
+<h1>分类 · 标签</h1>
+
+{% if error_msg %}
+<p class="error">{{ error_msg }}</p>
+{% endif %}
+
+<div class="panel">
+  <section class="panel-section">
+    <h2>分类</h2>
+    <button class="btn btn-primary section-create" id="cat-add" type="button" title="新建分类" aria-label="新建分类">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      新建分类
+    </button>
+
+    <div class="taxonomy-grid">
+        {% for c in categories %}
+        <div class="taxonomy-card" data-id="{{ c.id }}">
+          <span class="taxonomy-name-text" title="{{ c.name }}">{{ c.name }}{% if c.count > 0 %}<span class="tax-count">{{ c.count }}</span>{% endif %}</span>
+          <form class="taxonomy-edit" method="post" action="{{ base_path }}/admin/taxonomy/categories/{{ c.id }}/update" hidden>
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input class="taxonomy-name" name="name" value="{{ c.name }}" aria-label="分类名称" maxlength="5">
+            <button class="icon-btn" type="submit" title="保存" aria-label="保存">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+            <button class="icon-btn taxonomy-cancel" type="button" title="取消" aria-label="取消">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </form>
+          <div class="taxonomy-actions">
+            <button class="icon-btn taxonomy-edit-btn" type="button" title="编辑" aria-label="编辑">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <form class="inline-form" method="post" action="{{ base_path }}/admin/taxonomy/categories/{{ c.id }}/delete" data-confirm="确认删除该分类？关联文章将变为未分类。">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <button class="icon-btn icon-btn-danger" type="submit" title="删除" aria-label="删除">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <p class="empty-title">暂无分类</p>
+          <p class="empty-desc">点上方「新建分类」添加第一个分类</p>
+        </div>
+        {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel-section">
+    <h2>标签</h2>
+    <button class="btn btn-primary section-create" id="tag-add" type="button" title="新建标签" aria-label="新建标签">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      新建标签
+    </button>
+
+    <ul class="tag-list">
+      {% for t in tags %}
+      <li class="tag-item" data-id="{{ t.id }}">
+        <span class="tag-name">{{ t.name }}{% if t.count > 0 %}<span class="tax-count">{{ t.count }}</span>{% endif %}</span>
+        <form class="inline-form" method="post" action="{{ base_path }}/admin/taxonomy/tags/{{ t.id }}/delete" data-confirm="确认删除该标签？">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="icon-btn icon-btn-danger tag-del" type="submit" title="删除" aria-label="删除">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </form>
+      </li>
+      {% else %}
+      <li class="tag-item tag-empty">暂无标签</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+  var base = "{{ base_path }}";
+  var csrf = "{{ csrf }}";
+
+  function submitNew(action, kind, maxLen) {
+    var limit = maxLen || 5;
+    window.hancicPrompt('新建' + kind + '（最多 ' + limit + ' 个字）', '').then(function (name) {
+      if (!name) return;
+      if (name.length > limit) {
+        window.hancicToast(kind + '名称最多 ' + limit + ' 个字', 'error');
+        return;
+      }
+      window.hancicFetch(base + action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'name=' + encodeURIComponent(name) + '&csrf=' + encodeURIComponent(csrf)
+      }).then(function (res) {
+        if (!res.ok) {
+          window.hancicToast('新建失败，请重试', 'error');
+          return;
+        }
+        window.location.reload();
+      }).catch(function () {
+        window.hancicToast('网络错误，请重试', 'error');
+      });
+    });
+  }
+
+  // ---- 分类内联编辑：点铅笔进入编辑态（输入框 + 保存/取消），回车保存、Esc 取消 ----
+  function initInlineEdit() {
+    var cards = document.querySelectorAll('.taxonomy-card');
+    for (var i = 0; i < cards.length; i++) {
+      (function (card) {
+        var nameText = card.querySelector('.taxonomy-name-text');
+        var editForm = card.querySelector('.taxonomy-edit');
+        var actions = card.querySelector('.taxonomy-actions');
+        var input = card.querySelector('.taxonomy-name');
+        var editBtn = card.querySelector('.taxonomy-edit-btn');
+        var cancelBtn = card.querySelector('.taxonomy-cancel');
+        if (!nameText || !editForm || !actions || !input) return;
+
+        function enterEdit() {
+          nameText.hidden = true;
+          actions.hidden = true;
+          editForm.hidden = false;
+          input.focus();
+          input.select();
+        }
+        function exitEdit() {
+          editForm.hidden = true;
+          actions.hidden = false;
+          nameText.hidden = false;
+          input.value = nameText.textContent.trim();
+        }
+        editBtn.addEventListener('click', enterEdit);
+        cancelBtn.addEventListener('click', exitEdit);
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            exitEdit();
+          }
+        });
+      })(cards[i]);
+    }
+  }
+
+  var catAdd = document.getElementById('cat-add');
+  if (catAdd) {
+    catAdd.addEventListener('click', function () {
+      submitNew('/admin/taxonomy/categories', '分类');
+    });
+  }
+  var tagAdd = document.getElementById('tag-add');
+  if (tagAdd) {
+    tagAdd.addEventListener('click', function () {
+      submitNew('/admin/taxonomy/tags', '标签');
+    });
+  }
+  initInlineEdit();
+})();
+</script>
+{% endblock %}

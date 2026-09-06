@@ -1,0 +1,74 @@
+name: CI
+
+# 仅打 tag（v*）时触发：测试 + 静态检查 + 构建并发布 Docker 镜像。
+# 日常分支开发不跑 Actions（省额度，本地验证为准）；不含任何部署步骤。
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml 固定工具链版本；显式安装同一版本并带 clippy
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      - name: Clippy（-D warnings）
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: 单元 / 集成测试
+        run: cargo test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # e2e/package-lock.json 的 resolved 指向 npmmirror（本地环境配置所致）；
+      # CI 显式走官方 registry 并把 lockfile 中的 registry host 改写为 npmjs
+      - name: E2E 依赖安装（Playwright）
+        run: |
+          cd e2e
+          npm ci --registry=https://registry.npmjs.org/ --replace-registry-host=always
+          npx playwright install --with-deps chromium
+
+      - name: Playwright E2E
+        run: cd e2e && npx playwright test
+
+  docker:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          # ghcr 要求仓库名全小写（org/用户大小写会被拒绝），此处使用固定小写路径；
+          # 若 fork 到其它命名空间发布，请同步修改
+          tags: |
+            ghcr.io/angryshark128/hancic-blog:latest
+            ghcr.io/angryshark128/hancic-blog:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

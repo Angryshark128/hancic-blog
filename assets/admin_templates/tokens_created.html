@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Token 已生成{% endblock %}
+{% block content %}
+<h1>Token 已生成</h1>
+
+{% if expired %}
+<p class="error">该 Token 明文已展示过或已失效，不可再次查看。如需新 Token 请返回列表重新生成。</p>
+<div class="form-actions">
+  <a class="btn" href="{{ base_path }}/admin/tokens">返回 Token 列表</a>
+</div>
+{% else %}
+<p class="error"><svg class="msg-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>明文仅显示一次，请立即复制保存；刷新或关闭页面后将无法再次查看。</p>
+<section class="panel">
+  <h2>{{ token_name }}</h2>
+  <div class="token-plain"><code id="token-plain">{{ plain }}</code></div>
+  <div class="form-actions">
+    <button class="btn btn-primary" id="copy-token" type="button" data-token="{{ plain }}">复制</button>
+    <a class="btn" href="{{ base_path }}/admin/tokens">返回列表</a>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if not expired %}
+<script>
+// 复制按钮：明文经 tera 转义写入 data-token（base64url 字符集无 HTML 特殊字符）。
+(function () {
+  'use strict';
+  var btn = document.getElementById('copy-token');
+  if (!btn) return;
+  var token = btn.getAttribute('data-token');
+  btn.addEventListener('click', function () {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(token).then(function () {
+      btn.textContent = '已复制';
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "layout.html" %}
+{% block title %}文章管理{% endblock %}
+{% block content %}
+<h1>文章管理</h1>
+
+<div class="panel">
+  <form class="filter-bar" method="get" action="{{ base_path }}/admin/posts">
+    <div class="cs" data-select="#f-status">
+      <button class="cs-btn" type="button" aria-label="状态筛选" aria-haspopup="listbox" aria-expanded="false"></button>
+      <select id="f-status" name="status" aria-label="状态筛选" class="cs-hidden">
+      <option value="">全部状态</option>
+      <option value="draft"{% if filters.status == "draft" %} selected{% endif %}>草稿</option>
+      <option value="published"{% if filters.status == "published" %} selected{% endif %}>已发布</option>
+    </select>
+    </div>
+    <div class="cs" data-select="#f-type">
+      <button class="cs-btn" type="button" aria-label="类型筛选" aria-haspopup="listbox" aria-expanded="false"></button>
+      <select id="f-type" name="type" aria-label="类型筛选" class="cs-hidden">
+      <option value="all"{% if filters.type == "all" %} selected{% endif %}>全部类型</option>
+      <option value="post"{% if filters.type != "page" and filters.type != "all" %} selected{% endif %}>文章</option>
+      <option value="page"{% if filters.type == "page" %} selected{% endif %}>页面</option>
+    </select>
+    </div>
+    <div class="cs" data-select="#f-category">
+      <button class="cs-btn" type="button" aria-label="分类筛选" aria-haspopup="listbox" aria-expanded="false"></button>
+      <select id="f-category" name="category" aria-label="分类筛选" class="cs-hidden">
+      <option value="">全部分类</option>
+      {% for c in categories %}
+      <option value="{{ c.slug }}"{% if filters.category == c.slug %} selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    </div>
+    <div class="search-box">
+      <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+
+      <input name="q" value="{{ filters.q }}" placeholder="搜索标题关键词" aria-label="搜索标题关键词">
+      </div>
+    <a class="btn btn-primary" href="{{ base_path }}/admin/posts/new">新建</a>
+  </form>
+
+  {% if posts %}
+  <table class="data-table table-posts">
+    <thead>
+      <tr>
+        <th><a class="th-sort{% if filters.sort == 'title' %} active{% endif %}" href="?sort=title&amp;dir={% if filters.sort == 'title' and filters.dir == 'asc' %}desc{% else %}asc{% endif %}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">标题{% if filters.sort == 'title' %}<span class="sort-arrow{% if filters.dir == 'asc' %} up{% endif %}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></span>{% endif %}</a></th>
+        <th>类型</th>
+        <th>分类</th>
+        <th><a class="th-sort{% if filters.sort == 'status' %} active{% endif %}" href="?sort=status&amp;dir={% if filters.sort == 'status' and filters.dir == 'asc' %}desc{% else %}asc{% endif %}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">状态{% if filters.sort == 'status' %}<span class="sort-arrow{% if filters.dir == 'asc' %} up{% endif %}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></span>{% endif %}</a></th>
+        <th><a class="th-sort{% if filters.sort == 'views' %} active{% endif %}" href="?sort=views&amp;dir={% if filters.sort == 'views' and filters.dir == 'asc' %}desc{% else %}asc{% endif %}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">阅读{% if filters.sort == 'views' %}<span class="sort-arrow{% if filters.dir == 'asc' %} up{% endif %}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></span>{% endif %}</a></th>
+        <th><a class="th-sort{% if filters.sort == 'like_count' %} active{% endif %}" href="?sort=like_count&amp;dir={% if filters.sort == 'like_count' and filters.dir == 'asc' %}desc{% else %}asc{% endif %}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">点赞数{% if filters.sort == 'like_count' %}<span class="sort-arrow{% if filters.dir == 'asc' %} up{% endif %}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></span>{% endif %}</a></th>
+        <th><a class="th-sort{% if filters.sort == 'updated_at' %} active{% endif %}" href="?sort=updated_at&amp;dir={% if filters.sort == 'updated_at' and filters.dir == 'desc' %}asc{% else %}desc{% endif %}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">更新时间{% if filters.sort == 'updated_at' %}<span class="sort-arrow{% if filters.dir == 'asc' %} up{% endif %}"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></span>{% endif %}</a></th>
+        <th class="col-ops">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in posts %}
+      <tr>
+        <td>
+          <a href="{{ base_path }}/admin/posts/{{ p.id }}/edit">{{ p.title }}</a>
+        </td>
+        <td>{% if p.post_type == "page" %}<span class="badge badge-page">页面</span>{% else %}<span class="badge badge-post">文章</span>{% endif %}</td>
+        <td class="muted">{{ p.category }}</td>
+        <td>{% if p.status == "published" %}<span class="badge badge-published">已发布</span>{% else %}<span class="badge badge-draft">草稿</span>{% endif %}</td>
+        <td class="muted">{{ p.views }}</td>
+        <td class="muted">{{ p.like_count }}</td>
+        <td class="muted">{{ p.updated_at }}</td>
+        <td class="col-ops">
+          <a class="icon-btn" href="{{ base_path }}/admin/posts/{{ p.id }}/edit" title="编辑" aria-label="编辑">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </a>
+          <form class="inline-form" method="post" action="{{ base_path }}/admin/posts/{{ p.id }}/delete" data-confirm="确认删除该文章？">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button class="icon-btn icon-btn-danger" type="submit" title="删除" aria-label="删除">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">共 {{ total }} 篇</p>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+    <p class="empty-title">暂无文章</p>
+    <p class="empty-desc">还没有发布任何文章，写下第一篇开始记录吧。</p>
+    <a class="btn btn-primary empty-action" href="{{ base_path }}/admin/posts/new">写文章</a>
+  </div>
+  {% endif %}
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}
+  <a class="btn btn-sm" href="?page={{ page - 1 }}&amp;sort={{ filters.sort }}&amp;dir={{ filters.dir }}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">上一页</a>
+  {% endif %}
+  <span class="muted">{{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a class="btn btn-sm" href="?page={{ page + 1 }}&amp;sort={{ filters.sort }}&amp;dir={{ filters.dir }}&amp;status={{ filters.status }}&amp;type={{ filters.type }}&amp;category={{ filters.category }}&amp;q={{ filters.q }}">下一页</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

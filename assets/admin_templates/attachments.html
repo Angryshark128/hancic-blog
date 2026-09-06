@@ -1,0 +1,240 @@
+{% extends "layout.html" %}
+{% block title %}{% if page_mode == "upload" %}上传附件{% else %}附件库{% endif %}{% endblock %}
+{% block content %}
+{% if page_mode == "upload" %}
+<h1>上传附件</h1>
+
+<div class="panel">
+  <div id="att-upload" class="att-upload" tabindex="0" role="button" aria-label="选择或拖入文件">
+    <svg class="att-upload-icon" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <p class="att-upload-hint">点击选择文件，或将文件拖拽到此处</p>
+    <p class="muted">支持多选；图片 / 视频 / 常规文件（白名单类型）</p>
+  </div>
+  <input id="att-file" type="file" multiple hidden>
+  <p id="att-status" class="muted" role="status"></p>
+  <div class="form-actions">
+    <a class="btn" href="{{ base_path }}/admin/attachments">返回列表</a>
+  </div>
+</div>
+{% else %}
+<h1>附件库</h1>
+
+<div class="panel">
+  <form class="filter-bar" method="get" action="{{ base_path }}/admin/attachments">
+    <input class="filter-search" type="search" name="q" value="{{ filters.q }}" placeholder="搜索文件名…" aria-label="搜索文件名">
+    <div class="cs" data-select="#f-order">
+      <button class="cs-btn" type="button" aria-label="时间排序" aria-haspopup="listbox" aria-expanded="false"></button>
+      <select id="f-order" name="order" class="cs-hidden" aria-label="时间排序">
+      <option value="desc"{% if filters.order == "desc" %} selected{% endif %}>最新在前</option>
+      <option value="asc"{% if filters.order == "asc" %} selected{% endif %}>最早在前</option>
+    </select>
+    </div>
+    <button class="btn btn-primary" type="button" id="att-upload-btn">上传</button>
+  </form>
+
+  {% if attachments %}
+  <div class="att-grid">
+    {% for att in attachments %}
+    <article class="att-card">
+      <a class="att-thumb" href="{{ att.url }}" target="_blank" title="{{ att.orig_name }}">
+        {% if att.kind == "image" %}
+        <img src="{{ att.url }}" alt="{{ att.orig_name }}" loading="lazy">
+        {% elif att.kind == "video" %}
+        <span class="att-badge">视频</span>
+        {% else %}
+        <span class="att-badge">文件</span>
+        {% endif %}
+      </a>
+      <div class="att-meta">
+        <p class="att-name" title="{{ att.orig_name }}">{{ att.orig_name }}</p>
+        <p class="muted">{{ att.size }} · {{ att.created_at }}</p>
+        <form class="inline-form" method="post" action="{{ base_path }}/admin/attachments/{{ att.id }}/delete" data-confirm="确认删除该附件？">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn btn-sm btn-danger btn-ghost" type="submit">删除</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="muted">共 {{ total }} 个</p>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
+    <p class="empty-title">暂无附件</p>
+    <p class="empty-desc">上传的图片、视频与文件都会收纳在这里，供文章与说说引用。</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}
+  <a class="btn btn-sm" href="?page={{ page - 1 }}&amp;order={{ filters.order }}">上一页</a>
+  {% endif %}
+  <span class="muted">{{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a class="btn btn-sm" href="?page={{ page + 1 }}&amp;order={{ filters.order }}">下一页</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if page_mode == "upload" %}
+<script>
+// 附件上传页：拖拽/多选 → POST /api/uploads（hancicFetch 自动带 CSRF 头）→ 回列表。
+(function () {
+  'use strict';
+  var zone = document.getElementById('att-upload');
+  var fileInput = document.getElementById('att-file');
+  var status = document.getElementById('att-status');
+  if (!zone || !fileInput || !status) return;
+
+  function pickFiles(files) {
+    if (!files || !files.length) return;
+    var data = new FormData();
+    Array.prototype.forEach.call(files, function (f) { data.append('files', f); });
+    status.textContent = '上传中…';
+    window.hancicFetch('/api/uploads', { method: 'POST', body: data })
+      .then(function (res) {
+        if (res.ok) return res.json();
+        return res.json().then(function (body) {
+          var serverMsg = body && body.error && body.error.message;
+          var msg = serverMsg || ('上传失败（HTTP ' + res.status + '）');
+          if (res.status === 401 || res.status === 403) {
+            msg = '登录已过期，请刷新页面重新登录';
+          }
+          throw new Error(msg);
+        }).catch(function (e) {
+          if (e instanceof Error && e.message) throw e;
+          throw new Error('上传失败（HTTP ' + res.status + '）');
+        });
+      })
+      .then(function (json) {
+        var n = (json.data || []).length;
+        if (n) {
+          status.textContent = '已上传 ' + n + ' 个文件，跳转列表…';
+          location.href = '/admin/attachments';
+        } else {
+          status.textContent = '没有成功上传的文件';
+        }
+      })
+      .catch(function (err) {
+        status.textContent = err && err.message ? err.message : '上传失败，请重试';
+        fileInput.value = '';
+      });
+  }
+
+  zone.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () {
+    pickFiles(fileInput.files);
+    fileInput.value = '';
+  });
+  zone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    zone.classList.add('dragging');
+  });
+  zone.addEventListener('dragleave', function () { zone.classList.remove('dragging'); });
+  zone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    zone.classList.remove('dragging');
+    pickFiles(e.dataTransfer.files);
+  });
+})();
+</script>
+{% else %}
+<script>
+// 附件库：上传按钮弹对话框（选择/拖拽上传，成功后刷新列表）。
+(function () {
+  'use strict';
+  var btn = document.getElementById('att-upload-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', function () {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML =
+      '<div class="modal-box">' +
+        '<h3 class="modal-title">上传附件</h3>' +
+        '<div class="att-upload" id="att-upload" tabindex="0" role="button" aria-label="选择或拖入文件">' +
+          '<p class="att-upload-hint">点击选择文件，或将文件拖拽到此处</p>' +
+          '<p class="muted">支持多选；图片 / 视频 / 常规文件（白名单类型）</p>' +
+        '</div>' +
+        '<input id="att-file" type="file" multiple hidden>' +
+        '<p id="att-status" class="muted" role="status"></p>' +
+        '<div class="modal-actions">' +
+          '<button class="btn" type="button" data-x>取消</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function close() { overlay.remove(); }
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    overlay.querySelector('[data-x]').addEventListener('click', close);
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape' && document.body.contains(overlay)) {
+        close();
+        document.removeEventListener('keydown', esc);
+      }
+    });
+
+    var zone = overlay.querySelector('#att-upload');
+    var fileInput = overlay.querySelector('#att-file');
+    var status = overlay.querySelector('#att-status');
+
+    function pickFiles(files) {
+      if (!files || !files.length) return;
+      var data = new FormData();
+      Array.prototype.forEach.call(files, function (f) { data.append('files', f); });
+      status.textContent = '上传中…';
+      window.hancicFetch('/api/uploads', { method: 'POST', body: data })
+        .then(function (res) {
+          if (res.ok) return res.json();
+          return res.json().then(function (body) {
+            var serverMsg = body && body.error && body.error.message;
+            var msg = serverMsg || ('上传失败（HTTP ' + res.status + '）');
+            if (res.status === 401 || res.status === 403) {
+              msg = '登录已过期，请刷新页面重新登录';
+            }
+            throw new Error(msg);
+          }).catch(function (e) {
+            if (e instanceof Error && e.message) throw e;
+            throw new Error('上传失败（HTTP ' + res.status + '）');
+          });
+        })
+        .then(function (json) {
+          var n = (json.data || []).length;
+          if (n) {
+            status.textContent = '已上传 ' + n + ' 个文件，刷新列表…';
+            setTimeout(function () { window.location.reload(); }, 500);
+          } else {
+            status.textContent = '没有成功上传的文件';
+          }
+        })
+        .catch(function (err) {
+          status.textContent = err && err.message ? err.message : '上传失败，请重试';
+          fileInput.value = '';
+        });
+    }
+
+    zone.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+      pickFiles(fileInput.files);
+      fileInput.value = '';
+    });
+    zone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      zone.classList.add('dragging');
+    });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('dragging'); });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.classList.remove('dragging');
+      pickFiles(e.dataTransfer.files);
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

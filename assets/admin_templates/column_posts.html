@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block title %}专栏文章管理{% endblock %}
+{% block content %}
+<h1><a class="back-link" href="{{ base_path }}/admin/columns"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>专栏管理</a> · {{ column.name }}</h1>
+
+{% if error_msg %}
+<p class="error">{{ error_msg }}</p>
+{% endif %}
+
+<div class="panel">
+  <section class="panel-section">
+    <h2>专栏信息</h2>
+    <p class="muted">{% if column.description %}{{ column.description }}{% else %}暂无描述{% endif %}</p>
+  </section>
+
+  <section class="panel-section">
+    <h2>专栏文章（{{ in_posts | length }} 篇）</h2>
+    {% if in_posts %}
+    <table class="data-table">
+      <thead>
+        <tr><th>标题</th><th class="col-ops">操作</th></tr>
+      </thead>
+      <tbody>
+        {% for p in in_posts %}
+        <tr>
+          <td><a href="{{ p.url }}">{{ p.title }}</a></td>
+          <td class="col-ops">
+            <form class="inline-form" method="post" action="{{ base_path }}/admin/columns/{{ column.id }}/posts/remove" data-confirm="确认将该文章移出专栏？文章本身不受影响。">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="post_id" value="{{ p.id }}">
+              <button class="btn btn-sm" type="submit">移出</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+      <p class="empty-title">该专栏还没有文章</p>
+      <p class="empty-desc">在下方的「添加文章」里选择一篇加入</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="panel-section">
+    <h2>添加文章</h2>
+    {% if addable_posts %}
+    <form method="post" action="{{ base_path }}/admin/columns/{{ column.id }}/posts/add" class="column-add-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field">
+        <div class="cs column-add-cs" data-select="#cp-add-select">
+          <button class="cs-btn" type="button" aria-label="选择文章" aria-haspopup="listbox" aria-expanded="false"></button>
+          <select id="cp-add-select" name="post_id" class="cs-hidden" aria-label="选择文章" required>
+            <option value="">请选择要加入专栏的文章…</option>
+            {% for p in addable_posts %}
+            <option value="{{ p.id }}">{{ p.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">加入专栏</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+      <p class="empty-title">没有可添加的文章</p>
+      <p class="empty-desc">全部已发布文章都已加入某个专栏或本专栏</p>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% block title %}主题管理{% endblock %}
+{% block content %}
+<h1>主题管理</h1>
+
+{% if msg %}
+<p class="tip">{{ msg }}</p>
+{% endif %}
+
+<p class="muted">当前主题：<strong>{{ current_theme }}</strong>。切换后前台模板与样式需重启服务才完全生效；预览可在不切换的情况下查看前台效果。</p>
+
+<div class="panel">
+<section class="panel-section">
+  <h2>导入主题</h2>
+  <p class="muted">上传主题 zip（内含 theme.toml + templates/ + static/），同名主题将覆盖旧版本；导入成功后需重启服务生效。</p>
+  <form method="post" action="{{ base_path }}/admin/themes/import" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field">
+      <label for="theme-file">主题包（zip）</label>
+      <input id="theme-file" type="file" name="theme" accept=".zip,application/zip" required class="file-input-sr">
+      <div class="file-pick-row">
+        <label class="btn" for="theme-file">选择 zip 文件</label>
+        <span class="muted" id="theme-file-name">未选择</span>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">导入主题</button>
+    </div>
+  </form>
+</section>
+</div>
+
+{% if themes %}
+<div class="theme-grid">
+  {% for t in themes %}
+  <section class="panel" data-theme="{{ t.name }}">
+    <div class="theme-head">
+      <h2>{{ t.name }}{% if t.is_current %} <span class="badge-current">当前</span>{% endif %}</h2>
+      <span class="muted">v{{ t.version }}</span>
+    </div>
+    <p class="muted theme-desc">{{ t.description }}</p>
+    <p class="muted theme-author">作者：{{ t.author }}</p>
+    <div class="theme-actions">
+      {% if t.is_current %}
+      <span class="muted">使用中</span>
+      {% else %}
+      <form method="post" action="{{ base_path }}/admin/themes/{{ t.name }}/activate">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-primary" type="submit">启用</button>
+      </form>
+      <a class="btn" href="{{ base_path }}/admin/themes/{{ t.name }}/preview">预览</a>
+      <form class="inline-form" method="post" action="{{ base_path }}/admin/themes/{{ t.name }}/uninstall" data-confirm="确认卸载主题「{{ t.name }}」？">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-danger" type="submit">卸载</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></span>
+  <p class="empty-title">未发现已安装的主题</p>
+  <p class="empty-desc">在上方导入主题 zip 后即可在此管理</p>
+</div>
+{% endif %}
+{% endblock %}

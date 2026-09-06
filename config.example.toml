@@ -1,0 +1,21 @@
+host = "0.0.0.0"
+port = 8090
+data_dir = "/data"
+# 站点部署子路径（如 /blog），空表示根路径部署；非空时页面链接/静态资源/重定向均带此前缀，
+# 反向代理需剥前缀转发（如 nginx location /blog/ { proxy_pass http://127.0.0.1:8090/; }）
+base_path = ""
+# 站点绝对地址（用于 canonical、Open Graph、Twitter Card 等分享元数据）；
+# 若部署在子路径（base_path 非空），此处需包含子路径
+# 站点公开地址：用于分享卡片（canonical/OG/Twitter）等元数据，部署后改为你的域名；
+# 若 base_path 非空需包含子路径
+site_url = "https://your-domain.example"
+# 站点名称/描述：数据库（后台「站点设置」）已设置时以其为准，此处仅兜底
+site_name = "我的博客"
+site_desc = "记录与思考"
+active_theme = "default"
+image_compress = true
+image_max_edge = 2000
+image_quality = 85
+upload_max_image = 10485760
+upload_max_video = 104857600
+upload_max_file = 52428800

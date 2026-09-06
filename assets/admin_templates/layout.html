@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf }}">
+<title>{% block title %}管理后台{% endblock %} · {{ site_name }}</title>
+<link rel="stylesheet" href="{{ base_path }}/static/admin.css">
+<script>/* 明暗模式初始化（防闪烁）*/(function(){var m=localStorage.getItem('admin-mode');if(!m){m=window.matchMedia('(prefers-color-scheme:light)').matches?'light':'dark'}document.documentElement.setAttribute('data-mode',m)})()</script>
+<script>/* 主题色默认 emerald（用户未手动选择时显式标注，避免依赖 CSS 回退）*/(function(){if(!localStorage.getItem('admin-accent')){document.documentElement.setAttribute('data-accent','emerald')}})()</script>
+</head>
+<body>
+<div class="admin-shell" id="admin-shell">
+  <aside class="admin-side" id="admin-side">
+    <div class="admin-brand">
+      {% if site_logo %}
+      <img class="brand-logo" src="{{ site_logo }}" alt="{{ site_name }} 标志">
+      {% else %}
+      <span class="brand-dot" aria-hidden="true"></span>
+      {% endif %}
+      <span class="brand-name">{{ site_name }}</span>
+    </div>
+    <nav class="admin-nav">
+      {% for item in admin_nav %}
+      <a href="{{ base_path }}{{ item.url }}" class="admin-nav-item{% if item.active %} active{% endif %}" title="{{ item.label }}" data-group="{{ item.group }}">
+        <span class="nav-icon" data-icon="{{ item.url }}"></span>
+        <span class="nav-label">{{ item.label }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+  </aside>
+  <div class="admin-main">
+    <button class="admin-toggle" id="admin-toggle" type="button" aria-label="展开导航" title="展开导航">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <main class="admin-content">{% block content %}{% endblock %}</main>
+  </div>
+</div>
+<!-- 右下角悬浮按钮组（规范 7.16/10：折叠 + 主题色 + 明暗 + 查看站点 + 退出 rose；默认折叠，hover/focus 展开） -->
+<div class="fab-root" id="fab-group">
+  <div class="fab-list">
+    <div class="fab-item">
+      <button class="fab-btn side-collapse" id="side-collapse" type="button" aria-label="折叠菜单" title="折叠/展开菜单">
+        <svg class="icon-collapse-left" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        <svg class="icon-collapse-right" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+      </button>
+    </div>
+    <div class="fab-item">
+      <button class="fab-btn" id="mode-toggle" type="button" aria-label="切换亮暗模式" title="切换亮暗模式">
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+    <div class="fab-item">
+      <div class="accent-wrap">
+        <button class="fab-btn" id="accent-toggle" type="button" aria-label="选择主题配色" title="选择主题配色" aria-expanded="false" aria-controls="accent-panel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+        </button>
+        <div class="accent-panel" id="accent-panel" hidden>
+          <button class="accent-swatch" type="button" data-accent="emerald" aria-label="翠绿" title="翠绿"></button>
+          <button class="accent-swatch" type="button" data-accent="indigo" aria-label="靛蓝" title="靛蓝"></button>
+          <button class="accent-swatch" type="button" data-accent="rose" aria-label="玫红" title="玫红"></button>
+          <button class="accent-swatch" type="button" data-accent="amber" aria-label="琥珀" title="琥珀"></button>
+          <button class="accent-swatch" type="button" data-accent="slate" aria-label="石板灰" title="石板灰"></button>
+        </div>
+      </div>
+    </div>
+    <div class="fab-item">
+      <a class="fab-btn" href="{{ base_path }}/" title="查看站点" aria-label="查看站点" target="_blank" rel="noopener">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    </div>
+    <div class="fab-item">
+      <a class="fab-btn fab-btn-danger" href="{{ base_path }}/admin/logout" title="退出登录" aria-label="退出登录" data-confirm="确认退出登录？">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </a>
+    </div>
+  </div>
+  <button class="fab-main" id="fab-main" type="button" aria-label="展开设置" title="展开设置">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</div>
+<script src="{{ base_path }}/static/admin.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

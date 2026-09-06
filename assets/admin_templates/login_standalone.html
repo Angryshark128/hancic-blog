@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf }}">
+<title>登录 · {{ site_name }}</title>
+<link rel="stylesheet" href="{{ base_path }}/static/admin.css">
+<script>/* 明暗/主题初始化（防闪烁）：与后台一致（admin-mode/admin-accent，首访跟随系统 + 默认 indigo） */
+(function () {
+  var m = localStorage.getItem('admin-mode');
+  if (!m) m = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-mode', m);
+  var a = localStorage.getItem('admin-accent');
+  var legacy = { pink: 'rose', blue: 'indigo', green: 'emerald', purple: 'indigo', orange: 'amber' };
+  if (a && legacy.hasOwnProperty(a)) a = legacy[a];
+  if (a !== 'indigo' && a !== 'emerald' && a !== 'rose' && a !== 'amber' && a !== 'slate') a = 'indigo';
+  document.documentElement.setAttribute('data-accent', a);
+})();</script>
+</head>
+<body class="auth-page">
+<main class="auth-card">
+  <div class="auth-logo" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+  </div>
+  <h1 class="auth-title">{{ site_name }}</h1>
+  <p class="auth-sub">登录管理后台</p>
+  {% if not has_password %}
+  <p class="auth-tip">尚未设置管理员密码，<a href="{{ base_path }}/admin/setup">前往初始化</a>。</p>
+  {% endif %}
+  {% if error_tip %}<p class="auth-error" role="alert">{{ error_tip }}</p>{% endif %}
+  <form method="post" action="{{ base_path }}/admin/login">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="auth-label" for="password">密码</label>
+    <div class="auth-input-wrap">
+      <input class="auth-input" id="password" type="password" name="password"
+             placeholder="请输入管理员密码" required autofocus autocomplete="current-password">
+      <button class="auth-eye" type="button" aria-label="显示密码" title="显示/隐藏密码">
+        <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="icon-eye-off" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
+    <button type="submit" class="auth-btn">登录</button>
+  </form>
+  <a class="auth-back" href="{{ base_path }}/">返回首页</a>
+</main>
+<div class="fab-root" id="fab-group">
+  <div class="fab-list">
+    <div class="fab-item">
+      <button class="fab-btn" id="mode-toggle" type="button" aria-label="切换亮暗模式" title="切换亮暗模式">
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+    <div class="fab-item">
+      <div class="accent-wrap">
+        <button class="fab-btn" id="accent-toggle" type="button" aria-label="选择主题配色" title="选择主题配色" aria-expanded="false" aria-controls="accent-panel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+        </button>
+        <div class="accent-panel" id="accent-panel" hidden>
+          <button class="accent-swatch" type="button" data-accent="indigo" aria-label="靛蓝" title="靛蓝"></button>
+          <button class="accent-swatch" type="button" data-accent="emerald" aria-label="翠绿" title="翠绿"></button>
+          <button class="accent-swatch" type="button" data-accent="rose" aria-label="玫红" title="玫红"></button>
+          <button class="accent-swatch" type="button" data-accent="amber" aria-label="琥珀" title="琥珀"></button>
+          <button class="accent-swatch" type="button" data-accent="slate" aria-label="石板灰" title="石板灰"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button class="fab-main" id="fab-main" type="button" aria-label="展开设置" title="展开设置">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</div>
+<script src="{{ base_path }}/static/admin.js"></script>
+</body>
+</html>

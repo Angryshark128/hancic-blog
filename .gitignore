@@ -1,0 +1,24 @@
+# Rust build
+/target
+
+# Visual companion mockups (brainstorming artifacts)
+/.superpowers/
+
+# Local data (never commit)
+/data/
+/data-e2e/
+
+# Git worktrees (SDD isolated workspaces)
+/.worktrees/
+
+# E2E (Playwright)
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+
+# OS
+.DS_Store
+
+# mcp server 本地环境
+/mcp/.venv/
+/mcp/__pycache__/

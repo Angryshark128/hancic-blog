@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+{% block title %}站点设置{% endblock %}
+{% block content %}
+<h1>站点设置</h1>
+
+{% if settings_error %}
+<p class="error">{{ settings_error }}</p>
+{% endif %}
+
+<div class="panel">
+  <section class="panel-section">
+  <h2>站点信息</h2>
+  <form method="post" action="{{ base_path }}/admin/settings/save">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field">
+      <label for="site-name">站点名称</label>
+      <input id="site-name" name="site_name" value="{{ form.site_name }}" placeholder="如：寒蝉 Hancic" maxlength="30" required>
+    </div>
+    <div class="field">
+      <label for="site-desc">站点描述</label>
+      <input id="site-desc" name="site_desc" value="{{ form.site_desc }}" placeholder="一句话介绍你的站点，显示在页脚" maxlength="120">
+    </div>
+    <div class="field">
+      <label for="site-logo">站点 Logo</label>
+      <div class="logo-picker">
+        <img id="logo-preview" class="logo-preview" src="{{ form.site_logo }}" alt="站点 Logo 预览"{% if not form.site_logo %} hidden{% endif %}>
+        <div class="logo-actions">
+          <input id="logo-file" type="file" accept="image/*" hidden>
+          <button type="button" class="btn btn-sm" id="logo-upload">上传图片</button>
+          <button type="button" class="btn btn-sm" id="logo-browse">从附件库选择</button>
+          <button type="button" class="btn btn-sm" id="logo-clear"{% if not form.site_logo %} hidden{% endif %}>清除</button>
+        </div>
+        <input type="hidden" name="site_logo" id="site_logo" value="{{ form.site_logo }}">
+      </div>
+      <p class="muted">前台导航栏圆形展示（建议正方形图片）</p>
+    </div>
+    <div class="field">
+      <label for="footer-text">页脚文本</label>
+      <input id="footer-text" name="footer_text" value="{{ form.footer_text }}" placeholder="如 ICP 备案号 / 版权信息" maxlength="100">
+      <p class="muted">显示在页脚版权行右侧，常用于备案号</p>
+    </div>
+    <div class="field">
+      <label for="friend-links">友情链接</label>
+      <div class="kv-editor" id="friend-editor" data-target="friend_links" data-format="friend"></div>
+      <button type="button" class="kv-add" data-add="friend">+ 添加友情链接</button>
+      <input type="hidden" id="friend_links" name="friend_links" value="{{ form.friend_links }}">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">保存设置</button>
+    </div>
+  </form>
+</section>
+
+  <section class="panel-section">
+  <h2>导航菜单</h2>
+  <form method="post" action="{{ base_path }}/admin/settings/save">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field">
+      <label for="site-nav">导航菜单</label><span class="kv-hint">可拖拽排序；点行尾眼睛可隐藏某项（前台不显示，配置保留）</span>
+      <div class="kv-editor" id="nav-editor" data-target="site_nav" data-format="nav"></div>
+      <button type="button" class="kv-add" data-add="nav">+ 添加导航项</button>
+      <input type="hidden" id="site_nav" name="site_nav" value="{{ form.site_nav }}">
+      <p class="muted">首页/文章/说说/专栏为内置类型（自动预设路径，可改名称与拖拽排序）；新增支持「页面」（下拉列出独立页）或「链接」（填自定义路径）</p>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">保存导航</button>
+    </div>
+  </form>
+</section>
+
+  <section class="panel-section">
+  <h2>联系方式卡片</h2>
+  <p class="muted">前台右下角悬浮联系方式卡片：社交链接 + 邮箱，可整体开关</p>
+  <form method="post" action="{{ base_path }}/admin/settings/save">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field-row">
+      <div class="field field-inline field-cs-auto">
+        <label for="contact-enabled">悬浮卡片</label>
+        <div class="cs" data-select="#contact-enabled">
+          <button class="cs-btn" type="button" aria-label="悬浮卡片开关" aria-haspopup="listbox" aria-expanded="false"></button>
+          <select id="contact-enabled" name="contact_enabled" class="cs-hidden">
+            <option value="1"{% if form.contact_enabled == "1" %} selected{% endif %}>启用</option>
+            <option value="0"{% if form.contact_enabled != "1" %} selected{% endif %}>禁用</option>
+          </select>
+        </div>
+      </div>
+      <div class="field field-inline">
+        <label for="contact-email">联系邮箱</label>
+        <input id="contact-email" name="contact_email" type="email" value="{{ form.contact_email }}" placeholder="you@example.com" maxlength="100">
+      </div>
+    </div>
+    <div class="field">
+      <label for="site-social">社交链接</label>
+      <div class="kv-editor" id="social-editor" data-target="site_social" data-format="social"></div>
+      <button type="button" class="kv-add" data-add="social">+ 添加社交链接</button>
+      <input type="hidden" id="site_social" name="site_social" value="{{ form.site_social }}">
+    </div>
+    <div class="field">
+      <label for="social-logos">社交图标</label>
+      <div class="kv-editor" id="social-logos-editor" data-target="social_logos" data-format="logo"></div>
+      <button type="button" class="kv-add" data-add="social-logos">+ 添加图标</button>
+      <input type="hidden" id="social_logos" name="social_logos" value="{{ form.social_logos }}">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">保存设置</button>
+    </div>
+  </form>
+</section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 全部已发布文章（含独立页），供导航「页面」类型搜索选择
+window.__ALL_POSTS__ = {{ all_posts_json | safe }};
+</script>
+{% if saved %}
+<script>
+// 保存成功：重定向回设置页时弹轻提示（3 个表单共用）
+(function () {
+  'use strict';
+  if (window.hancicToast) window.hancicToast('保存成功');
+})();
+</script>
+{% endif %}
+<script>
+// 站点 Logo：上传 / 从附件库选择 / 清除（复用公共图片选择器 hancicPickImage）
+(function () {
+  'use strict';
+  var input = document.getElementById('site_logo');
+  var preview = document.getElementById('logo-preview');
+  var clearBtn = document.getElementById('logo-clear');
+  if (!input || !preview) return;
+  function setLogo(url) {
+    input.value = url;
+    if (url) {
+      preview.src = url;
+      preview.hidden = false;
+      clearBtn.hidden = false;
+    } else {
+      preview.hidden = true;
+      clearBtn.hidden = true;
+    }
+  }
+  document.getElementById('logo-upload').addEventListener('click', function () {
+    window.hancicPickImage(setLogo);
+  });
+  document.getElementById('logo-browse').addEventListener('click', function () {
+    window.hancicPickImage(setLogo);
+  });
+  clearBtn.addEventListener('click', function () { setLogo(''); });
+})();
+</script>
+{% endblock %}

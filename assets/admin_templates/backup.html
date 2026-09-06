@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+{% block title %}备份与恢复{% endblock %}
+{% block content %}
+<h1>备份与恢复</h1>
+
+{% if error_msg %}
+<p class="error">{{ error_msg }}</p>
+{% endif %}
+
+<div class="panel">
+{% if result %}
+<section class="panel-section">
+  <h2>恢复完成</h2>
+  <p class="muted">数据已从备份包恢复并通过完整性校验。原数据目录已整体改名保留在
+    <code>{{ result.backup_dir }}</code>，确认无误后可手动删除。请<strong>重启服务</strong>
+    使数据库连接与主题渲染完全生效，<strong>重启前请勿写入新数据</strong>（连接池仍指向
+    改名保留的旧库）。</p>
+  <ul>
+    <li>数据库（hancic.db）：{% if result.db %}已恢复{% else %}未包含{% endif %}</li>
+    <li>配置文件（config.toml）：{% if result.config %}已恢复{% else %}备份包未包含{% endif %}</li>
+    <li>上传附件（uploads/）：{{ result.uploads }} 个文件</li>
+    <li>主题（themes/）：{{ result.themes }} 个文件</li>
+    <li>共写入 {{ result.files }} 个文件</li>
+  </ul>
+</section>
+{% endif %}
+
+<section class="panel-section">
+  <h2>导出备份</h2>
+  <p class="muted">导出内容：数据库一致性快照（hancic.db）、配置文件（config.toml）、
+    上传附件（uploads/）、主题（themes/）。</p>
+  <form method="post" action="{{ base_path }}/admin/backup/export">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">下载备份 zip</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel-section">
+  <h2>恢复备份</h2>
+  <p class="error">恢复会用备份包<strong>覆盖当前全部数据</strong>；原数据目录将自动改名
+    为 <code>&lt;数据目录&gt;.bak-&lt;时间戳&gt;</code> 保留，确认无误后可手动删除。
+    恢复完成后请<strong>重启服务</strong>，重启前请勿写入新数据（连接池仍指向旧库）。</p>
+  <form method="post" action="{{ base_path }}/admin/backup/restore" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field">
+      <label for="backup-file">备份包（zip，≤ 500MB）</label>
+      <input id="backup-file" type="file" name="backup" accept=".zip,application/zip" required class="file-input-sr">
+      <div class="file-pick-row">
+        <label class="btn" for="backup-file">选择 zip 文件</label>
+        <span class="muted" id="backup-file-name">未选择</span>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-danger" type="submit"
+        data-confirm="确认恢复？当前数据将被备份包覆盖（原数据自动改名保留）。">恢复</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel-section">
+  <h2>备份恢复记录</h2>
+  {% if backup_logs %}
+  <table class="data-table">
+    <thead>
+      <tr><th>时间</th><th>类型</th><th>结果</th><th>大小</th><th>文件数</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      {% for l in backup_logs %}
+      <tr>
+        <td class="muted">{{ l.created_at }}</td>
+        <td>{% if l.kind == "export" %}导出{% else %}恢复{% endif %}</td>
+        <td>{% if l.status == "ok" %}<span class="badge badge-published">成功</span>{% else %}<span class="badge badge-danger">失败</span>{% endif %}</td>
+        <td class="muted">{% if l.size > 0 %}{{ l.size }} 字节{% else %}—{% endif %}</td>
+        <td class="muted">{% if l.files > 0 %}{{ l.files }}{% else %}—{% endif %}</td>
+        <td class="muted">{{ l.note }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><line x1="10" y1="12" x2="14" y2="12"/></svg></span>
+    <p class="empty-title">暂无备份/恢复记录</p>
+    <p class="empty-desc">在此页执行导出或恢复后，记录会显示在这里</p>
+  </div>
+  {% endif %}
+</section>
+</div>
+{% endblock %}

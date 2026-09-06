@@ -1,0 +1,202 @@
+{% extends "layout.html" %}
+{% block title %}仪表盘{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>仪表盘</h1>
+    <p class="page-sub">站点内容概览与阅读统计</p>
+  </div>
+  <div class="page-head-actions">
+    <a class="btn btn-primary" href="{{ base_path }}/admin/posts/new">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      写文章
+    </a>
+    <a class="btn" href="{{ base_path }}/admin/moments">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      写说说
+    </a>
+  </div>
+</div>
+
+<div class="panel">
+  <section class="panel-section">
+  <form class="filter-bar" method="get" action="{{ base_path }}/admin">
+    <div class="date-picker">
+      <input type="text" name="from" class="date-input" value="{{ from }}" placeholder="YYYY-MM-DD" aria-label="开始日期" autocomplete="off">
+      <button type="button" class="date-cal-btn" aria-label="选择开始日期" tabindex="-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+    </div>
+    <span class="date-sep">至</span>
+    <div class="date-picker">
+      <input type="text" name="to" class="date-input" value="{{ to }}" placeholder="YYYY-MM-DD" aria-label="结束日期" autocomplete="off">
+      <button type="button" class="date-cal-btn" aria-label="选择结束日期" tabindex="-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+    </div>
+    <button class="btn" type="submit">查询</button>
+    <span class="filter-sep" aria-hidden="true"></span>
+    <a class="quick-range{% if all %} active{% endif %}" href="?range=all">全部</a>
+    <a class="quick-range{% if active_days == 30 %} active{% endif %}" href="?days=30">最近30天</a>
+    <a class="quick-range{% if active_days == 60 %} active{% endif %}" href="?days=60">最近60天</a>
+    <a class="quick-range{% if active_days == 90 %} active{% endif %}" href="?days=90">最近90天</a>
+  </form>
+  </section>
+
+  <section class="panel-section">
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-row">
+      <span class="stat-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </span>
+      <div>
+        <div class="stat-num">{{ stats.total_posts }}</div>
+        <div class="stat-label">文章</div>
+      </div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-row">
+      <span class="stat-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      </span>
+      <div>
+        <div class="stat-num">{{ stats.total_moments }}</div>
+        <div class="stat-label">说说</div>
+      </div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-row">
+      <span class="stat-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </span>
+      <div>
+        <div class="stat-num">{{ stats.total_attachments }}</div>
+        <div class="stat-label">附件</div>
+      </div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-row">
+      <span class="stat-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+      </span>
+      <div>
+        <div class="stat-num">{{ stats.total_views }}</div>
+        <div class="stat-label">区间阅读</div>
+      </div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-row">
+      <span class="stat-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.716-4.534-9.193-8.242C.269 9.004 2.167 4 6.75 4c2.3 0 3.57 1.242 4.25 2.236C11.68 5.242 12.95 4 15.25 4 19.833 4 21.731 9.004 19.193 12.758 16.716 16.466 12 21 12 21z"/></svg>
+      </span>
+      <div>
+        <div class="stat-num">{{ stats.recent_like_count_7d }}</div>
+        <div class="stat-label">最近 7 天点赞</div>
+      </div>
+    </div>
+  </div>
+</div>
+  </section>
+
+  <section class="panel-section">
+  <h2>阅读 / 点赞趋势 <small class="muted">{% if all %}全部时间{% else %}{{ from }} ~ {{ to }}{% endif %}（UTC 日期分组）</small></h2>
+  <div class="chart-wrap"><canvas id="trend" role="img" aria-label="阅读量与点赞数趋势折线图"></canvas></div>
+  </section>
+
+  <section class="panel-section">
+  <h2>文章排行 <small class="muted">{% if all %}全部时间{% else %}{{ from }} ~ {{ to }}{% endif %} · Top 10</small></h2>
+  {% if posts %}
+  <table class="data-table">
+    <thead>
+      <tr><th>#</th><th>标题</th><th>{% if all %}阅读{% else %}期间阅读{% endif %}</th><th>累计阅读</th></tr>
+    </thead>
+    <tbody>
+      {% for p in posts %}
+      <tr>
+        <td class="muted">{{ loop.index }}</td>
+        <td><a href="{{ base_path }}/admin/posts/{{ p.id }}/edit">{{ p.title }}</a></td>
+        <td>{{ p.period_views }}</td>
+        <td class="muted">{{ p.views }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+    <p class="empty-title">暂无阅读记录</p>
+    <p class="empty-desc">所选范围内没有文章被阅读</p>
+  </div>
+  {% endif %}
+  </section>
+
+  <section class="panel-section">
+  <h2>地区分布 <small class="muted">{% if all %}全部时间{% else %}{{ from }} ~ {{ to }}{% endif %} · 全球</small></h2>
+  {% if region_total %}
+  <div class="map-wrap" id="region-map" role="img" aria-label="全球阅读分布地图（悬停国家查看数值）"></div>
+  <p class="muted">地图按国家/地区着色（阅读量）；无法归入地图的行列于下方明细</p>
+  <table class="data-table region-detail">
+    <thead><tr><th>#</th><th>国家</th><th>省份</th><th>阅读</th></tr></thead>
+    <tbody>
+      {% for r in regions %}
+      <tr>
+        <td class="muted">{{ (region_page - 1) * region_page_size + loop.index }}</td>
+        <td>{{ r.country if r.country else "—" }}</td>
+        <td>{{ r.province if r.province else "—" }}</td>
+        <td class="muted">{{ r.count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">共 {{ region_total }} 条地区记录{% if region_total > 1 %}（按期间阅读降序）{% endif %}</p>
+  {% if region_total_pages > 1 %}
+  <div class="pagination">
+    {% if region_page > 1 %}
+    <a class="btn btn-sm" href="?region_page={{ region_page - 1 }}{% if all %}&amp;range=all{% else %}&amp;from={{ from }}&amp;to={{ to }}{% endif %}">上一页</a>
+    {% endif %}
+    <span class="muted">{{ region_page }} / {{ region_total_pages }}</span>
+    {% if region_page < region_total_pages %}
+    <a class="btn btn-sm" href="?region_page={{ region_page + 1 }}{% if all %}&amp;range=all{% else %}&amp;from={{ from }}&amp;to={{ to }}{% endif %}">下一页</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+    <p class="empty-title">期间无地区数据</p>
+    <p class="empty-desc">所选日期范围内没有可归集的访问地区</p>
+  </div>
+  {% endif %}
+  </section>
+
+  <section class="panel-section">
+  <h2>跳转来源 <small class="muted">{% if all %}全部时间{% else %}{{ from }} ~ {{ to }}{% endif %}</small></h2>
+  {% if sources %}
+  <div class="source-grid">
+    <div class="chart-wrap chart-doughnut"><canvas id="source-chart" role="img" aria-label="跳转来源分布饼状图"></canvas></div>
+  </div>
+  <p class="muted">按 HTTP Referer 平台分类（微信公众号 / 知乎 / CSDN / 掘金 / 微博 / 搜索引擎等）</p>
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+    <p class="empty-title">期间无跳转来源数据</p>
+    <p class="empty-desc">所选日期范围内没有带来源标记的访问</p>
+  </div>
+  {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ base_path }}/static/vendor/chart.umd.min.js"></script>
+<script src="{{ base_path }}/static/vendor/echarts/echarts.min.js"></script>
+<script src="{{ base_path }}/static/vendor/echarts/world.geo.js"></script>
+<script>window.chartData = {{ chart_data | safe }};</script>
+<script>window.chartSources = {{ chart_sources | safe }};</script>
+<script>window.regionData = {{ region_data | safe }};</script>
+{% endblock %}

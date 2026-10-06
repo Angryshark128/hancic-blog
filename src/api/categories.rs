@@ -4,14 +4,14 @@
 //! slug 唯一冲突 → 409。更新为 PATCH 语义：缺失字段沿用现值，`slug` 传空串
 //! 视为从名称重新生成。响应 `{data: Category}`（POST 为 201），删除成功 204。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::services::{posts, taxonomy};
-use crate::AppState;
+use axum::Json;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
 use serde_json::{Value, json};
 use tower_sessions::Session;
 
@@ -116,9 +116,10 @@ fn opt_str<'a>(body: &'a Value, key: &str) -> Option<&'a str> {
 fn opt_i64(body: &Value, key: &str) -> Result<Option<i64>, AppError> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(n)) => n.as_i64().map(Some).ok_or_else(|| {
-            AppError::BadRequest(format!("{key} 必须是整数"))
-        }),
+        Some(Value::Number(n)) => n
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| AppError::BadRequest(format!("{key} 必须是整数"))),
         Some(_) => Err(AppError::BadRequest(format!("{key} 必须是整数"))),
     }
 }

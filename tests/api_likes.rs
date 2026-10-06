@@ -1,11 +1,14 @@
 mod common;
 
-use axum::body::{to_bytes, Body};
-use axum::http::{Request, StatusCode};
 use axum::Router;
+use axum::body::{Body, to_bytes};
+use axum::http::{Request, StatusCode};
 use hancic::db::Db;
 use hancic::models::{PostStatus, PostType};
-use hancic::services::{moments, posts::{self, NewPost}};
+use hancic::services::{
+    moments,
+    posts::{self, NewPost},
+};
 use serde_json::Value;
 use tower::ServiceExt;
 
@@ -70,7 +73,9 @@ async fn like_status_sets_visitor_cookie_and_returns_state() {
     let res = app
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=post&content_id={post_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=post&content_id={post_id}"
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -97,7 +102,9 @@ async fn toggle_like_reuses_cookie_and_updates_count() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=post&content_id={post_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=post&content_id={post_id}"
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -130,7 +137,9 @@ async fn like_status_and_toggle_support_moment() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=moment&content_id={moment_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=moment&content_id={moment_id}"
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -167,7 +176,9 @@ async fn toggle_like_toggles_off_again_for_same_visitor() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=post&content_id={post_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=post&content_id={post_id}"
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -206,7 +217,9 @@ async fn tampered_visitor_cookie_is_not_trusted_as_is() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=post&content_id={post_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=post&content_id={post_id}"
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -232,7 +245,9 @@ async fn tampered_visitor_cookie_is_not_trusted_as_is() {
     let status = app
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=post&content_id={post_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=post&content_id={post_id}"
+                ))
                 .header("cookie", cookie_cookie_header(&tampered_cookie))
                 .body(Body::empty())
                 .unwrap(),
@@ -241,8 +256,16 @@ async fn tampered_visitor_cookie_is_not_trusted_as_is() {
         .unwrap();
 
     assert_eq!(status.status(), StatusCode::OK);
-    let replacement = status.headers().get("set-cookie").unwrap().to_str().unwrap();
-    assert_ne!(cookie_cookie_header(replacement), cookie_cookie_header(&tampered_cookie));
+    let replacement = status
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert_ne!(
+        cookie_cookie_header(replacement),
+        cookie_cookie_header(&tampered_cookie)
+    );
     let body = read_json(status).await;
     assert_eq!(body["data"]["liked"], false);
     assert_eq!(body["data"]["like_count"], 1);
@@ -256,7 +279,9 @@ async fn excessive_toggle_requests_hit_rate_limit() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri(format!("/api/likes/status?content_type=post&content_id={post_id}"))
+                .uri(format!(
+                    "/api/likes/status?content_type=post&content_id={post_id}"
+                ))
                 .header("x-real-ip", "198.51.100.24")
                 .header("user-agent", "rate-test")
                 .body(Body::empty())

@@ -9,7 +9,7 @@
 use crate::error::AppError;
 use crate::models::AttachmentKind;
 use crate::services::uploads;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, OriginalUri, Path, Query, State};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
@@ -45,14 +45,16 @@ pub async fn api_list(
         }
     };
     let base = state.config.base_path.clone();
-    axum::Json(json!(items
-        .iter()
-        .map(|a| json!({
-            "id": a.id,
-            "url": format!("{base}/uploads/{}", a.path),
-            "name": crate::util::percent_decode(&a.orig_name),
-        }))
-        .collect::<Vec<_>>()))
+    axum::Json(json!(
+        items
+            .iter()
+            .map(|a| json!({
+                "id": a.id,
+                "url": format!("{base}/uploads/{}", a.path),
+                "name": crate::util::percent_decode(&a.orig_name),
+            }))
+            .collect::<Vec<_>>()
+    ))
     .into_response()
 }
 
@@ -78,15 +80,19 @@ pub async fn list(
         .and_then(|p| p.parse::<i64>().ok())
         .filter(|&p| p > 0)
         .unwrap_or(1);
-    let (items, total) = match uploads::list_attachments(&state.db, kind, asc, q, page, PAGE_SIZE).await {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::error!("后台附件列表查询失败: {e:?}");
-            (vec![], 0)
-        }
-    };
+    let (items, total) =
+        match uploads::list_attachments(&state.db, kind, asc, q, page, PAGE_SIZE).await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!("后台附件列表查询失败: {e:?}");
+                (vec![], 0)
+            }
+        };
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
-    ctx.insert("attachments", &attachment_list_value(&state.config.base_path, &items));
+    ctx.insert(
+        "attachments",
+        &attachment_list_value(&state.config.base_path, &items),
+    );
     ctx.insert("total", &total);
     ctx.insert("page", &page);
     ctx.insert("total_pages", &((total + PAGE_SIZE - 1) / PAGE_SIZE).max(1));
@@ -104,18 +110,20 @@ pub async fn list(
 
 /// 卡片 JSON：kind 供模板分支，url 指向前台 /uploads 静态路径，size 人类可读。
 fn attachment_list_value(base: &str, items: &[crate::models::Attachment]) -> Value {
-    json!(items
-        .iter()
-        .map(|a| json!({
-            "id": a.id,
-            "kind": a.kind.to_str(),
-            "orig_name": crate::util::percent_decode(&a.orig_name),
-            "mime": a.mime,
-            "size": human_size(a.size),
-            "url": format!("{base}/uploads/{}", a.path),
-            "created_at": super::format_local(a.created_at),
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        items
+            .iter()
+            .map(|a| json!({
+                "id": a.id,
+                "kind": a.kind.to_str(),
+                "orig_name": crate::util::percent_decode(&a.orig_name),
+                "mime": a.mime,
+                "size": human_size(a.size),
+                "url": format!("{base}/uploads/{}", a.path),
+                "created_at": super::format_local(a.created_at),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 /// 字节数 → 人类可读（B / KB / MB，取一位小数）。
@@ -141,10 +149,16 @@ pub async fn delete(
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
     let uploads_dir = state.config.data_dir.join("uploads");
     match uploads::delete_attachment(&state.db, &uploads_dir, id).await {
-        Ok(()) => Ok(super::redirect(&state.config.base_path, "/admin/attachments")),
+        Ok(()) => Ok(super::redirect(
+            &state.config.base_path,
+            "/admin/attachments",
+        )),
         Err(e) => {
             tracing::error!("删除附件失败: {e:?}");
-            Ok(super::redirect(&state.config.base_path, "/admin/attachments"))
+            Ok(super::redirect(
+                &state.config.base_path,
+                "/admin/attachments",
+            ))
         }
     }
 }

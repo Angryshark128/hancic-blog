@@ -5,7 +5,7 @@ mod common;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use common::{test_app, test_config, PNG_1x1};
+use common::{PNG_1x1, test_app, test_config};
 use hancic::services::{moments, uploads};
 use tower::ServiceExt;
 
@@ -31,7 +31,9 @@ async fn create_and_group_by_day() {
         .unwrap();
 
     // 附件按数组序关联，sort_order 0/1
-    let atts = moments::list_moment_attachments(&pool, m1.id).await.unwrap();
+    let atts = moments::list_moment_attachments(&pool, m1.id)
+        .await
+        .unwrap();
     assert_eq!(atts.len(), 2);
     assert_eq!(atts[0].0.id, a1.id);
     assert_eq!(atts[0].1, 0);
@@ -39,10 +41,12 @@ async fn create_and_group_by_day() {
     assert_eq!(atts[1].1, 1);
 
     // 无附件说说：关联列表为空
-    assert!(moments::list_moment_attachments(&pool, m2.id)
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        moments::list_moment_attachments(&pool, m2.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     // 手工把第二条 created_at 改为 25 小时前（Shanghai 时区下必为昨天）
     let yesterday = m1.created_at - chrono::Duration::hours(25);
@@ -53,14 +57,20 @@ async fn create_and_group_by_day() {
         .await
         .unwrap();
 
-    let (items, total) = moments::list_moments(&pool, None, false, None, 1, 20).await.unwrap();
+    let (items, total) = moments::list_moments(&pool, None, false, None, 1, 20)
+        .await
+        .unwrap();
     assert_eq!(total, 2);
     let groups = moments::group_by_day(&pool, items).await.unwrap();
     assert_eq!(groups.len(), 2, "两条不同日期的说说应分为 2 组");
 
     // 日期键按站点时区（默认 Asia/Shanghai）换算本地日期
     let tz: chrono_tz::Tz = "Asia/Shanghai".parse().unwrap();
-    let d1 = m1.created_at.with_timezone(&tz).format("%Y-%m-%d").to_string();
+    let d1 = m1
+        .created_at
+        .with_timezone(&tz)
+        .format("%Y-%m-%d")
+        .to_string();
     let d2 = yesterday.with_timezone(&tz).format("%Y-%m-%d").to_string();
     assert_eq!(groups[0].0, d1);
     assert_eq!(groups[1].0, d2);
@@ -110,7 +120,9 @@ async fn delete_moment_cascades() {
     let a1 = uploads::save_bytes(&pool, &cfg, &uploads_dir, "a.png", "image/png", PNG_1x1)
         .await
         .unwrap();
-    let m = moments::create_moment(&pool, "待删除", &[a1.id]).await.unwrap();
+    let m = moments::create_moment(&pool, "待删除", &[a1.id])
+        .await
+        .unwrap();
 
     moments::delete_moment(&pool, m.id).await.unwrap();
 

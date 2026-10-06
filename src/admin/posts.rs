@@ -8,11 +8,11 @@ use crate::db::Db;
 use crate::error::AppError;
 use crate::models::{Category, Post, PostStatus, PostType, Tag};
 use crate::services::{posts, taxonomy};
-use crate::{session, AppState};
+use crate::{AppState, session};
+use axum::Json;
 use axum::extract::{Form, OriginalUri, Path, Query, State};
 use axum::http::HeaderMap;
 use axum::response::Response;
-use axum::Json;
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -43,7 +43,12 @@ fn admin_sort(query: &HashMap<String, String>) -> Option<posts::PostSort> {
         "updated_at" => "updated_at",
         "published_at" => "published_at",
         "status" => "status",
-        _ => return Some(posts::PostSort { field: "updated_at", asc: false }),
+        _ => {
+            return Some(posts::PostSort {
+                field: "updated_at",
+                asc: false,
+            });
+        }
     };
     let asc = query.get("dir").map(String::as_str).unwrap_or("desc") == "asc";
     Some(posts::PostSort { field, asc })
@@ -108,7 +113,17 @@ pub async fn list(
             }
         }
     } else {
-        match list_by_keyword(&state.db, status, post_type, category_slug.as_deref(), &q, admin_sort(&query), page).await {
+        match list_by_keyword(
+            &state.db,
+            status,
+            post_type,
+            category_slug.as_deref(),
+            &q,
+            admin_sort(&query),
+            page,
+        )
+        .await
+        {
             Ok(v) => v,
             Err(e) => {
                 tracing::error!("后台文章关键词查询失败: {e:?}");
@@ -117,11 +132,11 @@ pub async fn list(
         }
     };
 
-    let categories = taxonomy::list_categories(&state.db).await.unwrap_or_default();
-    let cat_names: HashMap<i64, String> = categories
-        .iter()
-        .map(|c| (c.id, c.name.clone()))
-        .collect();
+    let categories = taxonomy::list_categories(&state.db)
+        .await
+        .unwrap_or_default();
+    let cat_names: HashMap<i64, String> =
+        categories.iter().map(|c| (c.id, c.name.clone())).collect();
 
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
     ctx.insert("posts", &post_list_value(&items, &cat_names));
@@ -145,24 +160,26 @@ pub async fn list(
 
 /// 列表行 JSON：category 显示名由 Rust 侧查表拼好，模板无需再按 id 索引。
 fn post_list_value(items: &[Post], cat_names: &HashMap<i64, String>) -> Value {
-    json!(items
-        .iter()
-        .map(|p| json!({
-            "id": p.id,
-            "title": p.title,
-            "slug": p.slug,
-            "status": p.status.to_str(),
-            "post_type": p.post_type.to_str(),
-            "views": p.views,
-            "like_count": p.like_count,
-            "category": p
-                .category_id
-                .and_then(|id| cat_names.get(&id))
-                .cloned()
-                .unwrap_or_default(),
-            "updated_at": super::format_local(p.updated_at),
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        items
+            .iter()
+            .map(|p| json!({
+                "id": p.id,
+                "title": p.title,
+                "slug": p.slug,
+                "status": p.status.to_str(),
+                "post_type": p.post_type.to_str(),
+                "views": p.views,
+                "like_count": p.like_count,
+                "category": p
+                    .category_id
+                    .and_then(|id| cat_names.get(&id))
+                    .cloned()
+                    .unwrap_or_default(),
+                "updated_at": super::format_local(p.updated_at),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 /// 标题关键词 + 类型/状态/分类组合查询（排序与 `list_posts` 一致）。
@@ -229,7 +246,9 @@ pub async fn new_page(
 
 /// 新建页上下文（创建失败回显用）。
 async fn render_new(state: &AppState, session: &Session, path: &str, error_tip: &str) -> Response {
-    let categories = taxonomy::list_categories(&state.db).await.unwrap_or_default();
+    let categories = taxonomy::list_categories(&state.db)
+        .await
+        .unwrap_or_default();
     let columns = crate::services::columns::list_columns(&state.db)
         .await
         .unwrap_or_default();
@@ -326,7 +345,9 @@ async fn render_edit(
     let tags = posts::list_tags_of_post(&state.db, id)
         .await
         .unwrap_or_default();
-    let categories = taxonomy::list_categories(&state.db).await.unwrap_or_default();
+    let categories = taxonomy::list_categories(&state.db)
+        .await
+        .unwrap_or_default();
     let columns = crate::services::columns::list_columns(&state.db)
         .await
         .unwrap_or_default();
@@ -342,20 +363,17 @@ async fn render_edit(
 
 /// 标签 JSON：`[{name}]`，供标签 chips 下拉建议。
 fn tags_value(tags: &[crate::models::Tag]) -> Value {
-    json!(tags
-        .iter()
-        .map(|t| json!({ "name": t.name }))
-        .collect::<Vec<_>>())
+    json!(
+        tags.iter()
+            .map(|t| json!({ "name": t.name }))
+            .collect::<Vec<_>>()
+    )
 }
 
 /// 编辑页文章 JSON：content_md 由模板 `{{ post.content_md }}` 进 `data-content`
 /// 属性（tera autoescape 保证属性值安全），tags 拼成逗号分隔字符串回填输入框。
 /// `submitted` 存在时逐字段覆盖为提交值（正文即使未改动也用提交值，保证不丢）。
-fn post_edit_value(
-    p: &Post,
-    tags: &[Tag],
-    submitted: Option<&HashMap<String, String>>,
-) -> Value {
+fn post_edit_value(p: &Post, tags: &[Tag], submitted: Option<&HashMap<String, String>>) -> Value {
     let mut v = json!({
         "id": p.id,
         "title": p.title,
@@ -470,17 +488,29 @@ pub async fn update(
         // 编辑页已移除摘要输入：未提交（None）→ 保留原值；提交则设值/清空
         excerpt: form.get("excerpt").map(|v| optional_field(Some(v))),
         slug: None, // 固定链接由系统管理（uuid/创建时指定），编辑不再改动
-        status: Some(parse_status(form.get("status").map(String::as_str).unwrap_or(""))),
+        status: Some(parse_status(
+            form.get("status").map(String::as_str).unwrap_or(""),
+        )),
         post_type: Some(parse_post_type(
             form.get("post_type").map(String::as_str).unwrap_or(""),
         )),
         // 空串 → Some(None) 显式清空分类；合法 id → Some(Some(id))；非法值忽略
-        category_id: match form.get("category_id").map(String::as_str).unwrap_or("").trim() {
+        category_id: match form
+            .get("category_id")
+            .map(String::as_str)
+            .unwrap_or("")
+            .trim()
+        {
             "" => Some(None),
             _ => parse_id(form.get("category_id")).map(Some),
         },
         // 专栏同分类：空串清空、合法 id 设值
-        column_id: match form.get("column_id").map(String::as_str).unwrap_or("").trim() {
+        column_id: match form
+            .get("column_id")
+            .map(String::as_str)
+            .unwrap_or("")
+            .trim()
+        {
             "" => Some(None),
             _ => parse_id(form.get("column_id")).map(Some),
         },
@@ -603,15 +633,17 @@ fn parse_tags(v: Option<&String>) -> Vec<String> {
 }
 
 fn categories_value(cats: &[Category]) -> Value {
-    json!(cats
-        .iter()
-        .map(|c| json!({ "id": c.id, "slug": c.slug, "name": c.name }))
-        .collect::<Vec<_>>())
+    json!(
+        cats.iter()
+            .map(|c| json!({ "id": c.id, "slug": c.slug, "name": c.name }))
+            .collect::<Vec<_>>()
+    )
 }
 
 fn columns_value(cols: &[crate::models::Column]) -> Value {
-    json!(cols
-        .iter()
-        .map(|c| json!({ "id": c.id, "slug": c.slug, "name": c.name }))
-        .collect::<Vec<_>>())
+    json!(
+        cols.iter()
+            .map(|c| json!({ "id": c.id, "slug": c.slug, "name": c.name }))
+            .collect::<Vec<_>>()
+    )
 }

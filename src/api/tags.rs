@@ -4,14 +4,14 @@
 //! 创建按 slug 幂等：同名标签返回既有记录（不重复创建）；删除会级联清理
 //! 文章-标签关联（post_tags ON DELETE CASCADE），文章本身不受影响。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::services::taxonomy;
-use crate::AppState;
+use axum::Json;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
 use serde_json::{Value, json};
 use tower_sessions::Session;
 
@@ -55,7 +55,9 @@ pub async fn create(
         return Err(AppError::BadRequest("标签名称最多 5 个字".into()));
     }
     let tag = taxonomy::ensure_tag(&state.db, &name).await?;
-    Ok(Json(json!({ "data": { "id": tag.id, "slug": tag.slug, "name": tag.name } })))
+    Ok(Json(
+        json!({ "data": { "id": tag.id, "slug": tag.slug, "name": tag.name } }),
+    ))
 }
 
 /// DELETE /api/tags/{id}：删除标签（关联文章不受影响），成功 204。

@@ -14,7 +14,7 @@
 
 use crate::db::Db;
 use crate::services::backup;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, Multipart, OriginalUri, Query, State};
 use axum::http::header;
 use axum::response::{IntoResponse, Response};
@@ -76,7 +76,7 @@ pub async fn page(
     uri: OriginalUri,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
     ctx.insert(
@@ -96,7 +96,7 @@ pub async fn export(
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     if session::verify_csrf(&session, form.get("csrf").map(String::as_str))
         .await
@@ -159,7 +159,7 @@ pub async fn restore(
     mut multipart: Multipart,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let mut csrf: Option<String> = None;
     let mut zip_bytes: Option<Vec<u8>> = None;
@@ -180,12 +180,20 @@ pub async fn restore(
                         Ok(Some(chunk)) => {
                             total += chunk.len() as u64;
                             if total > RESTORE_MAX_BYTES {
-                                return redirect_msg(&state.config.base_path, "备份包超过 500MB 上限");
+                                return redirect_msg(
+                                    &state.config.base_path,
+                                    "备份包超过 500MB 上限",
+                                );
                             }
                             bytes.extend_from_slice(&chunk);
                         }
                         Ok(None) => break,
-                        Err(_) => return redirect_msg(&state.config.base_path, "读取上传失败：文件过大或格式错误"),
+                        Err(_) => {
+                            return redirect_msg(
+                                &state.config.base_path,
+                                "读取上传失败：文件过大或格式错误",
+                            );
+                        }
                     }
                 }
                 zip_bytes = Some(bytes);
@@ -207,10 +215,8 @@ pub async fn restore(
     }
 
     // 落临时文件交给服务层（zip 需 seek 定位中央目录）
-    let zip_path = std::env::temp_dir().join(format!(
-        "hancic-restore-{}.zip",
-        uuid::Uuid::new_v4()
-    ));
+    let zip_path =
+        std::env::temp_dir().join(format!("hancic-restore-{}.zip", uuid::Uuid::new_v4()));
     if std::fs::write(&zip_path, &bytes).is_err() {
         return redirect_msg(&state.config.base_path, "写入临时文件失败，请重试");
     }
@@ -274,4 +280,3 @@ fn urlencode(s: &str) -> String {
     }
     out
 }
-

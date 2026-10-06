@@ -138,15 +138,14 @@ fn fix_bold_boundaries(md: &str) -> String {
         let body = line.strip_suffix('\n').unwrap_or(line);
         let trimmed = body.trim_start();
         // 围栏开启/关闭：行首（允许缩进）至少 3 个 ` 或 ~
-        let (is_fence, fc) = if trimmed.len() >= 3
-            && (trimmed.starts_with('`') || trimmed.starts_with('~'))
-        {
-            let c0 = trimmed.chars().next().unwrap();
-            let len = trimmed.chars().take_while(|&c| c == c0).count();
-            (len >= 3, c0)
-        } else {
-            (false, '\0')
-        };
+        let (is_fence, fc) =
+            if trimmed.len() >= 3 && (trimmed.starts_with('`') || trimmed.starts_with('~')) {
+                let c0 = trimmed.chars().next().unwrap();
+                let len = trimmed.chars().take_while(|&c| c == c0).count();
+                (len >= 3, c0)
+            } else {
+                (false, '\0')
+            };
         if is_fence {
             if !in_fence {
                 // 开启围栏
@@ -241,11 +240,26 @@ mod tests {
         let md = "## 第一节\n\n正文。\n\n### 子节一\n\n内容。\n\n## 第二节\n\n内容。\n\n#### 不收录\n\n内容。";
         let (html, toc) = render_with_toc(md);
         assert_eq!(toc.len(), 3, "应提取 3 个 1~3 级标题");
-        assert_eq!((toc[0].level, toc[0].text.as_str(), toc[0].id), (2, "第一节", 0));
-        assert_eq!((toc[1].level, toc[1].text.as_str(), toc[1].id), (3, "子节一", 1));
-        assert_eq!((toc[2].level, toc[2].text.as_str(), toc[2].id), (2, "第二节", 2));
-        assert!(html.contains(r#"<span id="toc-0"></span>"#), "h2 前应有锚点");
-        assert!(html.contains(r#"<span id="toc-1"></span>"#), "h3 前应有锚点");
+        assert_eq!(
+            (toc[0].level, toc[0].text.as_str(), toc[0].id),
+            (2, "第一节", 0)
+        );
+        assert_eq!(
+            (toc[1].level, toc[1].text.as_str(), toc[1].id),
+            (3, "子节一", 1)
+        );
+        assert_eq!(
+            (toc[2].level, toc[2].text.as_str(), toc[2].id),
+            (2, "第二节", 2)
+        );
+        assert!(
+            html.contains(r#"<span id="toc-0"></span>"#),
+            "h2 前应有锚点"
+        );
+        assert!(
+            html.contains(r#"<span id="toc-1"></span>"#),
+            "h3 前应有锚点"
+        );
         assert!(!html.contains(r#"toc-3"#), "h4 不应有锚点");
     }
 
@@ -303,7 +317,13 @@ mod tests {
     #[test]
     fn bold_standard_writing_unchanged() {
         // 独立成词、标点边界、链接内、列表内：原本就能渲染，不误伤
-        for md in ["**加粗**", "，**加粗**。", "[**加粗**](url)", "- **加粗**", "## **加粗**"] {
+        for md in [
+            "**加粗**",
+            "，**加粗**。",
+            "[**加粗**](url)",
+            "- **加粗**",
+            "## **加粗**",
+        ] {
             let html = render(md);
             assert!(html.contains("<strong>加粗</strong>"), "case: {md}");
             assert!(!html.contains("**"), "case: {md}");
@@ -316,7 +336,10 @@ mod tests {
         let md = "```rust\nlet x = a**b**c;\n```\n\n正文 **加粗** `a**b**c` 结束。";
         let html = render(md);
         assert!(html.contains("a**b**c"), "代码内 ** 应原样保留");
-        assert!(html.contains("<code>a**b**c</code>"), "行内代码内 ** 应原样保留");
+        assert!(
+            html.contains("<code>a**b**c</code>"),
+            "行内代码内 ** 应原样保留"
+        );
         // 正文中正常的强调不受影响
         assert!(html.contains("<strong>加粗</strong>"));
     }
@@ -328,6 +351,9 @@ mod tests {
         let html = render(md);
         assert!(html.contains("code **here**"), "代码内 ** 应原样保留");
         assert!(!html.contains("后续**"), "正文 ** 不应残留源码");
-        assert!(html.contains("<strong>加粗</strong>"), "代码块后的强调应正常渲染");
+        assert!(
+            html.contains("<strong>加粗</strong>"),
+            "代码块后的强调应正常渲染"
+        );
     }
 }

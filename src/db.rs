@@ -1,5 +1,5 @@
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::path::Path;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -49,8 +49,7 @@ CREATE TABLE IF NOT EXISTS trails (
 "#;
 
 pub async fn init(data_dir: &Path) -> Result<Db, sqlx::Error> {
-    std::fs::create_dir_all(data_dir)
-        .map_err(|e| sqlx::Error::Configuration(Box::new(e)))?;
+    std::fs::create_dir_all(data_dir).map_err(|e| sqlx::Error::Configuration(Box::new(e)))?;
     let db_path = data_dir.join("hancic.db");
     let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", db_path.display()))?
         .create_if_missing(true)
@@ -59,7 +58,8 @@ pub async fn init(data_dir: &Path) -> Result<Db, sqlx::Error> {
         .foreign_keys(true);
     let pool = SqlitePoolOptions::new()
         .max_connections(10)
-        .connect_with(opts).await?;
+        .connect_with(opts)
+        .await?;
     sqlx::raw_sql(MIGRATION_001).execute(&pool).await?;
     sqlx::raw_sql(MIGRATION_002).execute(&pool).await?;
     sqlx::raw_sql(MIGRATION_003).execute(&pool).await?;
@@ -77,11 +77,10 @@ pub async fn init(data_dir: &Path) -> Result<Db, sqlx::Error> {
 /// trails 表加 `sha256` 列（幂等：GPX 文件内容哈希，上传去重用）。
 /// 附部分唯一索引：既有旧行（NULL）不受影响，新行同哈希拒绝。
 async fn ensure_trail_sha256(pool: &Db) -> Result<(), sqlx::Error> {
-    let has: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pragma_table_info('trails') WHERE name = 'sha256'",
-    )
-    .fetch_one(pool)
-    .await?;
+    let has: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM pragma_table_info('trails') WHERE name = 'sha256'")
+            .fetch_one(pool)
+            .await?;
     if has.0 == 0 {
         sqlx::raw_sql("ALTER TABLE trails ADD COLUMN sha256 TEXT")
             .execute(pool)
@@ -113,11 +112,10 @@ async fn ensure_column_description(pool: &Db) -> Result<(), sqlx::Error> {
 
 /// posts 表加 `uuid`（幂等：旧库补列，历史文章自动回填随机 UUID，并建唯一索引）。
 async fn ensure_post_uuid(pool: &Db) -> Result<(), sqlx::Error> {
-    let has: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pragma_table_info('posts') WHERE name = 'uuid'",
-    )
-    .fetch_one(pool)
-    .await?;
+    let has: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM pragma_table_info('posts') WHERE name = 'uuid'")
+            .fetch_one(pool)
+            .await?;
     if has.0 == 0 {
         sqlx::raw_sql("ALTER TABLE posts ADD COLUMN uuid TEXT")
             .execute(pool)
@@ -142,11 +140,10 @@ async fn ensure_post_uuid(pool: &Db) -> Result<(), sqlx::Error> {
 /// posts 表加 `column_id`（幂等：已有列则跳过；SQLite ADD COLUMN 支持带
 /// REFERENCES 的 NULL 列，删除专栏时关联文章自动置空）。
 async fn ensure_column_id(pool: &Db) -> Result<(), sqlx::Error> {
-    let has: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pragma_table_info('posts') WHERE name = 'column_id'",
-    )
-    .fetch_one(pool)
-    .await?;
+    let has: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM pragma_table_info('posts') WHERE name = 'column_id'")
+            .fetch_one(pool)
+            .await?;
     if has.0 == 0 {
         sqlx::raw_sql(
             "ALTER TABLE posts ADD COLUMN column_id INTEGER REFERENCES columns(id) ON DELETE SET NULL",
@@ -192,11 +189,10 @@ CREATE INDEX IF NOT EXISTS idx_content_likes_target ON content_likes(content_typ
     .execute(pool)
     .await?;
 
-    let has_post_like: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pragma_table_info('posts') WHERE name = 'like_count'",
-    )
-    .fetch_one(pool)
-    .await?;
+    let has_post_like: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM pragma_table_info('posts') WHERE name = 'like_count'")
+            .fetch_one(pool)
+            .await?;
     if has_post_like.0 == 0 {
         sqlx::raw_sql("ALTER TABLE posts ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0")
             .execute(pool)
@@ -250,11 +246,9 @@ async fn ensure_page_view_source(pool: &Db) -> Result<(), sqlx::Error> {
     .fetch_one(pool)
     .await?;
     if has.0 == 0 {
-        sqlx::raw_sql(
-            "ALTER TABLE page_views ADD COLUMN source TEXT NOT NULL DEFAULT 'other'",
-        )
-        .execute(pool)
-        .await?;
+        sqlx::raw_sql("ALTER TABLE page_views ADD COLUMN source TEXT NOT NULL DEFAULT 'other'")
+            .execute(pool)
+            .await?;
     }
     Ok(())
 }
@@ -263,10 +257,13 @@ async fn seed_default_settings(pool: &Db) -> Result<(), sqlx::Error> {
     let defaults: &[(&str, &str)] = &[
         ("site_name", "我的博客"),
         ("site_desc", ""),
-        ("site_nav", r#"[{"type":"home","label":"首页","url":"/"},{"type":"articles","label":"文章","url":"/archives"},{"type":"column","label":"专栏","url":"/columns"},{"type":"trail","label":"轨迹","url":"/trails"},{"type":"moments","label":"说说","url":"/moments"},{"type":"link","label":"关于","url":"/about"}]"#),
+        (
+            "site_nav",
+            r#"[{"type":"home","label":"首页","url":"/"},{"type":"articles","label":"文章","url":"/archives"},{"type":"column","label":"专栏","url":"/columns"},{"type":"trail","label":"轨迹","url":"/trails"},{"type":"moments","label":"说说","url":"/moments"},{"type":"link","label":"关于","url":"/about"}]"#,
+        ),
         ("site_social", r#"{}"#),
         ("active_theme", "default"),
-        ("theme_mode", "auto"),        // auto | light | dark
+        ("theme_mode", "auto"), // auto | light | dark
         ("timezone", "Asia/Shanghai"),
         // 页脚/友情链接/悬浮联系方式卡片（空默认，后台设置页填）
         ("footer_text", ""),
@@ -281,7 +278,10 @@ async fn seed_default_settings(pool: &Db) -> Result<(), sqlx::Error> {
     ];
     for (k, v) in defaults {
         sqlx::query("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)")
-            .bind(k).bind(v).execute(pool).await?;
+            .bind(k)
+            .bind(v)
+            .execute(pool)
+            .await?;
     }
     Ok(())
 }

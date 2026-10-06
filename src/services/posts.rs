@@ -90,7 +90,11 @@ pub(crate) fn order_by_clause(sort: Option<PostSort>) -> String {
     };
     let dir = if s.asc { "ASC" } else { "DESC" };
     // 专栏内文章按自定义顺序（column_sort）：同序回退按 id 升序（加入顺序）
-    let tail = if s.field == "column_sort" { "id ASC" } else { "id DESC" };
+    let tail = if s.field == "column_sort" {
+        "id ASC"
+    } else {
+        "id DESC"
+    };
     format!("ORDER BY {field} {dir}, {tail}")
 }
 
@@ -335,7 +339,9 @@ pub async fn list_posts(db: &Db, opts: PostListOptions) -> Result<(Vec<Post>, i6
     if let Some(column) = opts.column_slug.as_deref() {
         q = q.bind(column);
     }
-    q = q.bind(opts.page_size).bind((opts.page - 1) * opts.page_size);
+    q = q
+        .bind(opts.page_size)
+        .bind((opts.page - 1) * opts.page_size);
     let rows = q.fetch_all(db).await?;
     let items: Vec<Post> = rows.into_iter().map(Post::from).collect();
     Ok((items, total))
@@ -438,12 +444,11 @@ async fn hit_snippet(
                 snippet(posts_fts, 1, '{SNIPPET_MARK_OPEN}', '{SNIPPET_MARK_CLOSE}', '…', 12) \
          FROM posts_fts WHERE rowid = ? AND posts_fts MATCH ?",
     );
-    let (title_snip, content_snip): (String, String) =
-        sqlx::query_as::<_, (String, String)>(&sql)
-            .bind(id)
-            .bind(match_expr)
-            .fetch_one(db)
-            .await?;
+    let (title_snip, content_snip): (String, String) = sqlx::query_as::<_, (String, String)>(&sql)
+        .bind(id)
+        .bind(match_expr)
+        .fetch_one(db)
+        .await?;
     let snippet = if content_snip.contains(SNIPPET_MARK_OPEN) {
         content_snip
     } else if title_snip.contains(SNIPPET_MARK_OPEN) {
@@ -503,9 +508,7 @@ pub async fn update_post(db: &Db, id: i64, input: UpdatePost) -> Result<Post, Ap
     if let Some(pat) = &input.published_at {
         sets.push("published_at = ?");
         match pat {
-            Some(t) => values.push(BindVal::Text(
-                t.to_rfc3339_opts(SecondsFormat::Nanos, true),
-            )),
+            Some(t) => values.push(BindVal::Text(t.to_rfc3339_opts(SecondsFormat::Nanos, true))),
             None => values.push(BindVal::Null),
         }
     } else if let Some(status) = input.status {
@@ -587,9 +590,7 @@ pub async fn update_post_timestamps(
     if let Some(pat) = &published_at {
         sets.push("published_at = ?");
         match pat {
-            Some(t) => values.push(BindVal::Text(
-                t.to_rfc3339_opts(SecondsFormat::Nanos, true),
-            )),
+            Some(t) => values.push(BindVal::Text(t.to_rfc3339_opts(SecondsFormat::Nanos, true))),
             None => values.push(BindVal::Null),
         }
     }
@@ -842,11 +843,7 @@ pub struct Activity {
 
 /// 最近活动流：合并已发布文章与说说，按时间倒序。
 /// `days` 为回溯窗口，`limit` 为每类最大条数。
-pub async fn recent_activity(
-    db: &Db,
-    days: i64,
-    limit: i64,
-) -> Result<Vec<Activity>, AppError> {
+pub async fn recent_activity(db: &Db, days: i64, limit: i64) -> Result<Vec<Activity>, AppError> {
     let since = chrono::Utc::now() - chrono::Duration::days(days);
     let since = since.format("%Y-%m-%dT%H:%M:%SZ").to_string();
     let posts: Vec<(String, String, String)> = sqlx::query_as(

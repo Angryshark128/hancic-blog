@@ -7,10 +7,10 @@
 use crate::api;
 use crate::error::AppError;
 use crate::services::settings;
-use crate::{themes, AppState};
+use crate::{AppState, themes};
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
-use axum::Json;
 use serde_json::{Value, json};
 use tower_sessions::Session;
 
@@ -39,7 +39,9 @@ pub async fn list(
             })
         })
         .collect();
-    Ok(Json(json!({ "data": { "items": items, "current": current } })))
+    Ok(Json(
+        json!({ "data": { "items": items, "current": current } }),
+    ))
 }
 
 /// POST /api/themes/{name}/activate：把主题写为当前主题（需重启完全生效）。

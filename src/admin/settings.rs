@@ -10,10 +10,10 @@
 
 use crate::models::{PostStatus, PostType};
 use crate::services::{posts, settings};
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, OriginalUri, State};
 use axum::response::Response;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
 
@@ -120,7 +120,9 @@ async fn render(
             .collect(),
         None => {
             // get_many 只返回数据库存在的键；缺失键补空值，避免模板访问未定义字段
-            let mut v = settings::get_many(&state.db, &FORM_KEYS).await.unwrap_or_default();
+            let mut v = settings::get_many(&state.db, &FORM_KEYS)
+                .await
+                .unwrap_or_default();
             for k in FORM_KEYS {
                 v.entry(k.to_string()).or_default();
             }
@@ -147,9 +149,12 @@ async fn render(
     )
     .await
     .unwrap_or_default();
-    let all_posts_json = serde_json::to_string(&all_posts.iter().map(|p| {
-        json!({ "slug": p.slug, "title": p.title, "type": p.post_type.to_str() })
-    }).collect::<Vec<_>>())
+    let all_posts_json = serde_json::to_string(
+        &all_posts
+            .iter()
+            .map(|p| json!({ "slug": p.slug, "title": p.title, "type": p.post_type.to_str() }))
+            .collect::<Vec<_>>(),
+    )
     .unwrap_or_else(|_| "[]".into());
     ctx.insert("all_posts_json", &all_posts_json);
     super::render_admin(state, "settings.html", &ctx)
@@ -185,10 +190,7 @@ fn validate(form: &HashMap<String, String>) -> Vec<String> {
         }
     }
     if let Some(contact_enabled) = form.get("contact_enabled") {
-        if !contact_enabled.is_empty()
-            && contact_enabled != "1"
-            && contact_enabled != "0"
-        {
+        if !contact_enabled.is_empty() && contact_enabled != "1" && contact_enabled != "0" {
             errors.push("联系方式开关不合法".into());
         }
     }
@@ -213,9 +215,15 @@ fn validate_nav(s: &str) -> Option<String> {
     let Some(arr) = v.as_array() else {
         return Some("导航必须为 JSON 数组".into());
     };
-    const TYPES: [&str; 7] = ["home", "articles", "moments", "pages", "column", "trail", "link"];
+    const TYPES: [&str; 7] = [
+        "home", "articles", "moments", "pages", "column", "trail", "link",
+    ];
     for (i, item) in arr.iter().enumerate() {
-        let label = item.get("label").and_then(Value::as_str).unwrap_or("").trim();
+        let label = item
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
         let url = item.get("url").and_then(Value::as_str).unwrap_or("").trim();
         let ty = item.get("type").and_then(Value::as_str).unwrap_or("link");
         if !TYPES.contains(&ty) {

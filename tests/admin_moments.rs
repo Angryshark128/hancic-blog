@@ -4,7 +4,7 @@
 //! 缩略图 img → 删除后列表与 DB 均消失。
 
 mod common;
-use common::{extract_csrf, login_admin, start_server_with_cfg, test_config, PNG_1x1};
+use common::{PNG_1x1, extract_csrf, login_admin, start_server_with_cfg, test_config};
 use hancic::db;
 use hancic::services::moments;
 
@@ -58,7 +58,11 @@ async fn publish_and_delete_flow() {
         .join(",");
 
     // 列表页拿 CSRF（顺带验证列表页可访问）
-    let res = client.get(format!("{base}/admin/moments")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/moments"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200);
     let html = res.text().await.unwrap();
     let csrf = extract_csrf(&html);
@@ -78,7 +82,9 @@ async fn publish_and_delete_flow() {
     assert_eq!(res.status(), 302, "发布应 302 回列表");
 
     // 服务层断言：一条说说 + 两条附件（保持上传顺序）
-    let (moments_list, total) = moments::list_moments(&pool, None, false, None, 1, 20).await.unwrap();
+    let (moments_list, total) = moments::list_moments(&pool, None, false, None, 1, 20)
+        .await
+        .unwrap();
     assert_eq!(total, 1);
     let m = &moments_list[0];
     assert_eq!(m.content, content);
@@ -88,7 +94,11 @@ async fn publish_and_delete_flow() {
     assert_eq!(atts[1].0.id, ids[1], "附件顺序应按上传顺序");
 
     // 列表页含内容与缩略图
-    let res = client.get(format!("{base}/admin/moments")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/moments"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200);
     let html = res.text().await.unwrap();
     assert!(html.contains(content), "列表应含说说内容");
@@ -111,7 +121,9 @@ async fn publish_and_delete_flow() {
         .await
         .unwrap();
     assert_eq!(res.status(), 302);
-    let (_, total) = moments::list_moments(&pool, None, false, None, 1, 20).await.unwrap();
+    let (_, total) = moments::list_moments(&pool, None, false, None, 1, 20)
+        .await
+        .unwrap();
     assert_eq!(total, 0, "删除后说说应不存在");
     let html = client
         .get(format!("{base}/admin/moments"))
@@ -136,7 +148,11 @@ async fn admin_moments_list_shows_like_count_column() {
     let base = format!("http://{addr}");
     assert!(login_admin(&client, &addr).await);
 
-    let html = client.get(format!("{base}/admin/moments")).send().await.unwrap();
+    let html = client
+        .get(format!("{base}/admin/moments"))
+        .send()
+        .await
+        .unwrap();
     let csrf = extract_csrf(&html.text().await.unwrap());
     let res = client
         .post(format!("{base}/admin/moments"))
@@ -150,7 +166,9 @@ async fn admin_moments_list_shows_like_count_column() {
         .unwrap();
     assert_eq!(res.status(), 302);
 
-    let (moments_list, total) = moments::list_moments(&pool, None, false, None, 1, 20).await.unwrap();
+    let (moments_list, total) = moments::list_moments(&pool, None, false, None, 1, 20)
+        .await
+        .unwrap();
     assert_eq!(total, 1);
     let moment_id = moments_list[0].id;
     sqlx::query("UPDATE moments SET like_count = 4 WHERE id = ?")
@@ -168,5 +186,8 @@ async fn admin_moments_list_shows_like_count_column() {
         .await
         .unwrap();
     assert!(html.contains("点赞数"), "说说列表应展示点赞数字段: {html}");
-    assert!(html.contains(">4<") || html.contains("4"), "说说列表应展示点赞数 4: {html}");
+    assert!(
+        html.contains(">4<") || html.contains("4"),
+        "说说列表应展示点赞数 4: {html}"
+    );
 }

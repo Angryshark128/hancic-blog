@@ -13,8 +13,8 @@ use crate::db::Db;
 use crate::error::AppError;
 use crate::models::Trail;
 use chrono::{DateTime, Utc};
-use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
+use quick_xml::events::{BytesStart, Event};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -348,10 +348,12 @@ fn seg_distance_m(a: (f64, f64, f64), b: (f64, f64, f64), p: (f64, f64, f64)) ->
 
 /// 坐标序列 → `[[lat,lon,speed],...]` JSON 字符串。
 pub fn coords_json(coords: &[(f64, f64, f64)]) -> String {
-    json!(coords
-        .iter()
-        .map(|(lat, lon, speed)| json!([lat, lon, speed]))
-        .collect::<Vec<_>>())
+    json!(
+        coords
+            .iter()
+            .map(|(lat, lon, speed)| json!([lat, lon, speed]))
+            .collect::<Vec<_>>()
+    )
     .to_string()
 }
 
@@ -379,12 +381,16 @@ pub async fn import_gpx(
     let sha256 = {
         let mut h = Sha256::new();
         h.update(data);
-        h.finalize().iter().map(|b| format!("{b:02x}")).collect::<String>()
+        h.finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
     };
-    if let Some(existing) = sqlx::query_as::<_, (String,)>("SELECT name FROM trails WHERE sha256 = ? LIMIT 1")
-        .bind(&sha256)
-        .fetch_optional(db)
-        .await?
+    if let Some(existing) =
+        sqlx::query_as::<_, (String,)>("SELECT name FROM trails WHERE sha256 = ? LIMIT 1")
+            .bind(&sha256)
+            .fetch_optional(db)
+            .await?
     {
         return Err(AppError::BadRequest(format!(
             "已存在相同轨迹「{}」，请勿重复上传",
@@ -443,7 +449,13 @@ pub async fn import_gpx(
             return Err(e.into());
         }
     };
-    let full = coords_json(&stats.points.iter().map(|p| (p.lat, p.lon, p.speed)).collect::<Vec<_>>());
+    let full = coords_json(
+        &stats
+            .points
+            .iter()
+            .map(|p| (p.lat, p.lon, p.speed))
+            .collect::<Vec<_>>(),
+    );
     if let Err(e) = std::fs::write(trails_dir.join(format!("{id}.json")), &full) {
         // 完整坐标缺失不影响浏览（详情页有 GPX 兜底），仅告警
         tracing::warn!("写入轨迹完整坐标失败 id={id}: {e}");
@@ -511,17 +523,21 @@ pub async fn list_trails(db: &Db, sort: TrailSort) -> Result<Vec<Trail>, AppErro
 }
 
 pub async fn get_trail(db: &Db, id: i64) -> Result<Option<Trail>, AppError> {
-    let row = sqlx::query_as::<_, Trail>(&format!(
-        "SELECT {TRAIL_COLUMNS} FROM trails WHERE id = ?"
-    ))
-    .bind(id)
-    .fetch_optional(db)
-    .await?;
+    let row =
+        sqlx::query_as::<_, Trail>(&format!("SELECT {TRAIL_COLUMNS} FROM trails WHERE id = ?"))
+            .bind(id)
+            .fetch_optional(db)
+            .await?;
     Ok(row)
 }
 
 /// 改名称/描述（坐标与统计不可改，需重新上传）。
-pub async fn update_trail(db: &Db, id: i64, name: &str, description: &str) -> Result<Trail, AppError> {
+pub async fn update_trail(
+    db: &Db,
+    id: i64,
+    name: &str,
+    description: &str,
+) -> Result<Trail, AppError> {
     let r = sqlx::query(
         "UPDATE trails SET name = ?, description = ?, \
          updated_at = strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id = ?",
@@ -572,7 +588,9 @@ pub fn load_full_coords(trails_dir: &Path, id: i64) -> Option<Vec<(f64, f64, f64
         out.push((
             pair.first()?.as_f64()?,
             pair.get(1)?.as_f64()?,
-            pair.get(2).and_then(serde_json::Value::as_f64).unwrap_or(0.0),
+            pair.get(2)
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0),
         ));
     }
     Some(out)
@@ -586,7 +604,13 @@ pub fn load_gpx_coords(trails_dir: &Path, file_path: &str) -> Option<Vec<(f64, f
         return None;
     }
     let stats = compute_stats(&points);
-    Some(stats.points.iter().map(|p| (p.lat, p.lon, p.speed)).collect())
+    Some(
+        stats
+            .points
+            .iter()
+            .map(|p| (p.lat, p.lon, p.speed))
+            .collect(),
+    )
 }
 
 fn internal(e: impl std::fmt::Display) -> AppError {

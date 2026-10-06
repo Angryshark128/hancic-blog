@@ -44,7 +44,10 @@ async fn import_creates_posts_and_local_images() {
         .await
         .unwrap();
     assert_eq!(report.posts_created, 1);
-    let p = posts::get_post_by_slug(&pool, "hello").await.unwrap().unwrap();
+    let p = posts::get_post_by_slug(&pool, "hello")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(p.title, "你好 halo");
     // 本地图片已入库并替换 URL
     assert!(p.content_md.contains("/uploads/"));
@@ -99,13 +102,16 @@ async fn import_downloads_external_images_when_enabled() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
-        axum::serve(listener, app.into_make_service()).await.unwrap();
+        axum::serve(listener, app.into_make_service())
+            .await
+            .unwrap();
     });
 
     // fixture：正文引用带 query/fragment 的外部图（下载成功应计数 + 文件名截断）
     let zip_path = cfg.data_dir.join("halo-dl.zip");
     let url = format!("http://{addr}/x.png?v=2#frag");
-    let md = format!("---\ntitle: 下载测试\ndate: 2024-01-02\ntags: [dl]\n---\n# t\n\n![a]({url})\n");
+    let md =
+        format!("---\ntitle: 下载测试\ndate: 2024-01-02\ntags: [dl]\n---\n# t\n\n![a]({url})\n");
     let file = std::fs::File::create(&zip_path).unwrap();
     let mut writer = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default();

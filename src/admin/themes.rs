@@ -9,7 +9,7 @@
 
 use crate::services::settings;
 use crate::themes;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, Multipart, OriginalUri, Path, Query, State};
 use axum::response::Response;
 use serde_json::{Value, json};
@@ -28,7 +28,7 @@ pub async fn list(
     uri: OriginalUri,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     // discover 实时扫描主题目录：复制新主题进 data_dir 后无需重启即可见
     let themes_dir = state.config.data_dir.join("themes");
@@ -50,25 +50,24 @@ pub async fn list(
     ctx.insert("themes", &themes_value(&metas, &current));
     ctx.insert("current_theme", &current);
     // 切换结果提示（`?msg=`，见 `redirect_msg`）
-    ctx.insert(
-        "msg",
-        &query.get("msg").map(String::as_str).unwrap_or(""),
-    );
+    ctx.insert("msg", &query.get("msg").map(String::as_str).unwrap_or(""));
     super::render_admin(&state, "themes.html", &ctx)
 }
 
 /// 主题列表 JSON：名称/作者/版本/描述 + 是否当前（模板据此展示徽标与操作）。
 fn themes_value(metas: &[themes::ThemeMeta], current: &str) -> Value {
-    json!(metas
-        .iter()
-        .map(|m| json!({
-            "name": m.name,
-            "author": m.author,
-            "version": m.version,
-            "description": m.description,
-            "is_current": m.name == current,
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        metas
+            .iter()
+            .map(|m| json!({
+                "name": m.name,
+                "author": m.author,
+                "version": m.version,
+                "description": m.description,
+                "is_current": m.name == current,
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 // ---------- 切换 ----------
@@ -80,7 +79,7 @@ pub async fn activate(
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     if session::verify_csrf(&session, form.get("csrf").map(String::as_str))
         .await
@@ -112,7 +111,7 @@ pub async fn preview(
     Path(name): Path<String>,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let themes_dir = state.config.data_dir.join("themes");
     if !themes::is_valid_name(&name) || themes::load_meta(&themes_dir, &name).is_err() {
@@ -130,7 +129,7 @@ pub async fn import(
     mut multipart: Multipart,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let mut csrf = None;
     let mut zip_bytes: Option<Vec<u8>> = None;
@@ -181,7 +180,7 @@ pub async fn uninstall(
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     if session::verify_csrf(&session, form.get("csrf").map(String::as_str))
         .await

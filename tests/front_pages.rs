@@ -108,8 +108,16 @@ async fn post_page_uses_site_logo_as_absolute_share_image() {
 
     let (status, html) = get_html(&app, &format!("/post/{}", post.uuid)).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains(r#"property="og:image" content="https://example.test/uploads/site/logo.png""#));
-    assert!(html.contains(r#"name="twitter:image" content="https://example.test/uploads/site/logo.png""#));
+    assert!(
+        html.contains(
+            r#"property="og:image" content="https://example.test/uploads/site/logo.png""#
+        )
+    );
+    assert!(
+        html.contains(
+            r#"name="twitter:image" content="https://example.test/uploads/site/logo.png""#
+        )
+    );
     assert!(html.contains(r#"name="twitter:card" content="summary_large_image""#));
 }
 
@@ -141,7 +149,9 @@ async fn about_page_renders_share_meta_tags() {
             column_id: None,
             tags: vec![],
         },
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let (status, html) = get_html(&app, "/about").await;
     assert_eq!(status, StatusCode::OK);
@@ -165,11 +175,17 @@ async fn page_route_renders_canonical_for_standalone_page() {
             column_id: None,
             tags: vec![],
         },
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let (status, html) = get_html(&app, "/page/standalone-share").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains(r#"<link rel="canonical" href="https://example.test/page/standalone-share">"#));
+    assert!(
+        html.contains(
+            r#"<link rel="canonical" href="https://example.test/page/standalone-share">"#
+        )
+    );
 }
 
 #[test]
@@ -210,7 +226,10 @@ fn post_page_prefers_excerpt_for_share_description() {
         None,
     );
 
-    assert_eq!(share.get("description").and_then(|v| v.as_str()), Some("这是手写摘要"));
+    assert_eq!(
+        share.get("description").and_then(|v| v.as_str()),
+        Some("这是手写摘要")
+    );
 }
 
 #[test]
@@ -246,11 +265,17 @@ fn share_summary_decodes_entities_and_strips_tags() {
     assert!(description.contains("重点"));
     assert!(!description.contains("<strong>"), "应剥离 HTML 标签");
     assert!(description.contains("Rust & Go"), "&amp; 应解码为 &");
-    assert!(description.contains("<code>"), "&lt;code&gt; 应解码为字面文本");
+    assert!(
+        description.contains("<code>"),
+        "&lt;code&gt; 应解码为字面文本"
+    );
     assert!(description.contains("引号"), "&quot; 应解码为引号");
     assert!(description.contains("撇号"), "&apos; 应解码为撇号");
     for residue in ["&amp;", "&lt;", "&gt;", "&quot;", "&apos;", "&nbsp;"] {
-        assert!(!description.contains(residue), "摘要不应残留实体文本 {residue}");
+        assert!(
+            !description.contains(residue),
+            "摘要不应残留实体文本 {residue}"
+        );
     }
 
     // 裸 & 与未知实体应原样保留
@@ -310,7 +335,10 @@ async fn homepage_article_card_shows_like_count() {
         "首页文章卡片应渲染点赞容器"
     );
     assert!(html.contains("like-icon"), "首页文章卡片应显示点赞图标");
-    assert!(html.contains(">7</span></span>"), "点赞数应绑定在文章卡片点赞容器中");
+    assert!(
+        html.contains(">7</span></span>"),
+        "点赞数应绑定在文章卡片点赞容器中"
+    );
 }
 
 #[tokio::test]
@@ -329,7 +357,10 @@ async fn archives_article_card_shows_like_count() {
         html.contains("class=\"post-like-count\""),
         "归档页文章卡片应渲染点赞容器"
     );
-    assert!(html.contains(">7</span></span>"), "点赞数应绑定在文章卡片点赞容器中");
+    assert!(
+        html.contains(">7</span></span>"),
+        "点赞数应绑定在文章卡片点赞容器中"
+    );
     assert!(html.contains("like-icon"));
 }
 
@@ -355,15 +386,24 @@ async fn homepage_article_list_hides_like_sort() {
         !home_html.contains("href=\"?sort=like_count\""),
         "首页不应提供按点赞排序链接"
     );
-    assert!(!home_html.contains("按点赞"), "首页排序入口不应展示按点赞文案");
+    assert!(
+        !home_html.contains("按点赞"),
+        "首页排序入口不应展示按点赞文案"
+    );
     let home_high = home_html.find("高赞文章").unwrap();
     let home_low = home_html.find("低赞文章").unwrap();
     assert!(home_high < home_low, "首页高赞文章应排在前面（默认顺序）");
 
     let (status, html) = get_html(&app, "/archives?sort=like_count").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("href=\"/archives?sort=like_count\""), "归档页应提供按点赞排序链接");
-    assert!(html.contains("data-sort=\"like_count\""), "前台排序条应暴露点赞数排序选项");
+    assert!(
+        html.contains("href=\"/archives?sort=like_count\""),
+        "归档页应提供按点赞排序链接"
+    );
+    assert!(
+        html.contains("data-sort=\"like_count\""),
+        "前台排序条应暴露点赞数排序选项"
+    );
     let high = html.find("高赞文章").unwrap();
     let low = html.find("低赞文章").unwrap();
     assert!(high < low, "按点赞数排序时高赞文章应排在前面");
@@ -379,10 +419,17 @@ async fn post_page_shows_like_button_and_count() {
         .await
         .unwrap();
 
-    let (status, html) = get_html(&app, &format!("/post/{}", post_id_uuid(&pool, post_id).await)).await;
+    let (status, html) = get_html(
+        &app,
+        &format!("/post/{}", post_id_uuid(&pool, post_id).await),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("like-toggle"));
-    assert!(html.contains("aria-label=\"点赞这篇文章\""), "文章点赞按钮应带可访问名称");
+    assert!(
+        html.contains("aria-label=\"点赞这篇文章\""),
+        "文章点赞按钮应带可访问名称"
+    );
     assert!(html.contains("<span class=\"like-count\">5</span>"));
     assert!(html.contains("like-icon"));
 }
@@ -402,7 +449,10 @@ async fn moments_page_shows_like_button_and_count() {
     let (status, html) = get_html(&app, "/moments").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("moment-like-toggle"));
-    assert!(html.contains("aria-label=\"点赞这条说说\""), "说说点赞按钮应带可访问名称");
+    assert!(
+        html.contains("aria-label=\"点赞这条说说\""),
+        "说说点赞按钮应带可访问名称"
+    );
     assert!(html.contains("<span class=\"like-count\">2</span>"));
 }
 
@@ -414,7 +464,11 @@ async fn front_pages_include_like_toggle_script() {
         .await
         .unwrap();
 
-    let (post_status, post_html) = get_html(&app, &format!("/post/{}", post_id_uuid(&pool, post_id).await)).await;
+    let (post_status, post_html) = get_html(
+        &app,
+        &format!("/post/{}", post_id_uuid(&pool, post_id).await),
+    )
+    .await;
     assert_eq!(post_status, StatusCode::OK);
     assert!(post_html.contains("/api/likes/toggle"));
     assert!(post_html.contains("[data-like-toggle]"));
@@ -438,7 +492,9 @@ async fn unknown_slug_404() {
 #[tokio::test]
 async fn category_page_filters() {
     let (app, pool) = test_app("front-category").await;
-    let cat = taxonomy::create_category(&pool, "技术", "tech", 0).await.unwrap();
+    let cat = taxonomy::create_category(&pool, "技术", "tech", 0)
+        .await
+        .unwrap();
     create_published_post(&pool, "Rust 入门", Some(cat.id), vec![]).await;
     create_published_post(&pool, "无关文章", None, vec![]).await;
 
@@ -509,16 +565,38 @@ async fn about_page_renders_page_type() {
 async fn homepage_has_heatmap_activity_and_more_link() {
     let (app, pool) = test_app("front-home-aggregate").await;
     for i in 1..=6 {
-        posts::create_post(&pool, NewPost {
-            title: format!("聚合页文章{i}"), content_md: "内容".into(), excerpt: None, slug: None,
-            status: PostStatus::Published, post_type: hancic::models::PostType::Post,
-            category_id: None, column_id: None, tags: vec!["标签甲".into()],
-        }).await.unwrap();
+        posts::create_post(
+            &pool,
+            NewPost {
+                title: format!("聚合页文章{i}"),
+                content_md: "内容".into(),
+                excerpt: None,
+                slug: None,
+                status: PostStatus::Published,
+                post_type: hancic::models::PostType::Post,
+                category_id: None,
+                column_id: None,
+                tags: vec!["标签甲".into()],
+            },
+        )
+        .await
+        .unwrap();
     }
-    hancic::services::moments::create_moment(&pool, "首页说说一条", &[]).await.unwrap();
-    let res = app.oneshot(Request::builder().uri("/").body(Body::empty()).unwrap()).await.unwrap();
+    hancic::services::moments::create_moment(&pool, "首页说说一条", &[])
+        .await
+        .unwrap();
+    let res = app
+        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    let html = String::from_utf8(axum::body::to_bytes(res.into_body(), 1024*1024).await.unwrap().to_vec()).unwrap();
+    let html = String::from_utf8(
+        axum::body::to_bytes(res.into_body(), 1024 * 1024)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
     assert!(html.contains("heatmap"), "首页应含更新日历");
     assert!(html.contains("moment-timeline"), "首页应含最近说说时间线");
     assert!(html.contains("查看更多文章"), "首页应有查看更多链接");
@@ -529,15 +607,40 @@ async fn homepage_has_heatmap_activity_and_more_link() {
 async fn archives_page_lists_all_posts() {
     let (app, pool) = test_app("front-archives").await;
     for t in ["归档文章甲", "归档文章乙"] {
-        posts::create_post(&pool, NewPost {
-            title: t.into(), content_md: "x".into(), excerpt: None, slug: None,
-            status: PostStatus::Published, post_type: hancic::models::PostType::Post,
-            category_id: None, column_id: None, tags: vec![],
-        }).await.unwrap();
+        posts::create_post(
+            &pool,
+            NewPost {
+                title: t.into(),
+                content_md: "x".into(),
+                excerpt: None,
+                slug: None,
+                status: PostStatus::Published,
+                post_type: hancic::models::PostType::Post,
+                category_id: None,
+                column_id: None,
+                tags: vec![],
+            },
+        )
+        .await
+        .unwrap();
     }
-    let res = app.oneshot(Request::builder().uri("/archives").body(Body::empty()).unwrap()).await.unwrap();
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/archives")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    let html = String::from_utf8(axum::body::to_bytes(res.into_body(), 1024*1024).await.unwrap().to_vec()).unwrap();
+    let html = String::from_utf8(
+        axum::body::to_bytes(res.into_body(), 1024 * 1024)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
     assert!(html.contains("归档文章甲") && html.contains("归档文章乙"));
     assert!(html.contains("全部文章"));
 }
@@ -545,18 +648,40 @@ async fn archives_page_lists_all_posts() {
 #[tokio::test]
 async fn category_page_shows_category_tags() {
     let (app, pool) = test_app("front-category-tags").await;
-    let cat = taxonomy::create_category(&pool, "户外", "outdoor", 0).await.unwrap();
-    let other = taxonomy::create_category(&pool, "技术", "tech", 0).await.unwrap();
-    create_published_post(&pool, "武功山徒步", Some(cat.id), vec!["徒步".into(), "露营".into()]).await;
+    let cat = taxonomy::create_category(&pool, "户外", "outdoor", 0)
+        .await
+        .unwrap();
+    let other = taxonomy::create_category(&pool, "技术", "tech", 0)
+        .await
+        .unwrap();
+    create_published_post(
+        &pool,
+        "武功山徒步",
+        Some(cat.id),
+        vec!["徒步".into(), "露营".into()],
+    )
+    .await;
     create_published_post(&pool, "Rust 笔记", Some(other.id), vec!["rust".into()]).await;
 
     let (status, html) = get_html(&app, "/category/outdoor").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("分类：<span class=\"archive-cat\">户外</span>"), "分类名应 accent 区分");
-    assert!(html.contains("class=\"category-tags\""), "分类页应展示分类下标签云");
-    assert!(html.contains("href=\"/tag/徒步\""), "应显示该分类下文章的标签");
+    assert!(
+        html.contains("分类：<span class=\"archive-cat\">户外</span>"),
+        "分类名应 accent 区分"
+    );
+    assert!(
+        html.contains("class=\"category-tags\""),
+        "分类页应展示分类下标签云"
+    );
+    assert!(
+        html.contains("href=\"/tag/徒步\""),
+        "应显示该分类下文章的标签"
+    );
     assert!(html.contains("href=\"/tag/露营\""));
-    assert!(!html.contains("href=\"/tag/rust\""), "其他分类的标签不应出现");
+    assert!(
+        !html.contains("href=\"/tag/rust\""),
+        "其他分类的标签不应出现"
+    );
 }
 
 #[tokio::test]
@@ -567,7 +692,10 @@ async fn tag_page_shows_badge_title() {
     let (status, html) = get_html(&app, "/tag/户外").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("tag-current"), "标签名应保持徽章样式");
-    assert!(html.contains("href=\"/tag/户外\""), "徽章应可点击回本标签页");
+    assert!(
+        html.contains("href=\"/tag/户外\""),
+        "徽章应可点击回本标签页"
+    );
 }
 
 #[tokio::test]
@@ -598,21 +726,31 @@ async fn tag_page_has_month_sidebar_and_filter() {
 
     let (status, html) = get_html(&app, "/tag/户外").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("href=\"/tag/户外?month=2025-03\""), "侧栏应列出该标签下文章的月份");
+    assert!(
+        html.contains("href=\"/tag/户外?month=2025-03\""),
+        "侧栏应列出该标签下文章的月份"
+    );
     assert!(html.contains("href=\"/tag/户外?month=2024-11\""));
     assert!(!html.contains("2023-01"), "无此标签的月份不应出现");
 
     let (status, html) = get_html(&app, "/tag/户外?month=2025-03").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("标签三月文章"));
-    assert!(!html.contains("标签异月文章"), "月份过滤后不应出现其他月份文章");
+    assert!(
+        !html.contains("标签异月文章"),
+        "月份过滤后不应出现其他月份文章"
+    );
 }
 
 #[tokio::test]
 async fn moments_page_has_month_sidebar_and_filter() {
     let (app, pool) = test_app("front-moments-month").await;
-    hancic::services::moments::create_moment(&pool, "三月说说", &[]).await.unwrap();
-    hancic::services::moments::create_moment(&pool, "五月说说", &[]).await.unwrap();
+    hancic::services::moments::create_moment(&pool, "三月说说", &[])
+        .await
+        .unwrap();
+    hancic::services::moments::create_moment(&pool, "五月说说", &[])
+        .await
+        .unwrap();
     // 让两条说说落在不同月份（created_at 由应用生成，直接改写）
     sqlx::query("UPDATE moments SET created_at = ? WHERE content = ?")
         .bind("2025-03-10T10:00:00Z")
@@ -630,7 +768,10 @@ async fn moments_page_has_month_sidebar_and_filter() {
     let (status, html) = get_html(&app, "/moments").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("side-months"), "说说页右侧应有按月份时间线");
-    assert!(html.contains("href=\"/moments?month=2025-05\""), "月份链接应指向说说页过滤");
+    assert!(
+        html.contains("href=\"/moments?month=2025-05\""),
+        "月份链接应指向说说页过滤"
+    );
     assert!(html.contains("href=\"/moments?month=2025-03\""));
 
     let (status, html) = get_html(&app, "/moments?month=2025-03").await;
@@ -644,13 +785,18 @@ async fn moments_page_has_month_sidebar_and_filter() {
 async fn homepage_moments_default_collapsed() {
     let (app, pool) = test_app("front-moments-fold").await;
     for i in 0..3 {
-        hancic::services::moments::create_moment(&pool, &format!("折叠说说{i}"), &[]).await.unwrap();
+        hancic::services::moments::create_moment(&pool, &format!("折叠说说{i}"), &[])
+            .await
+            .unwrap();
     }
 
     let (status, html) = get_html(&app, "/").await;
     assert_eq!(status, StatusCode::OK);
     assert!(!html.contains("moment-body expanded"), "说说应全部默认折叠");
-    assert!(html.contains("aria-expanded=\"false\""), "折叠按钮应标记未展开");
+    assert!(
+        html.contains("aria-expanded=\"false\""),
+        "折叠按钮应标记未展开"
+    );
 }
 
 #[tokio::test]
@@ -663,8 +809,14 @@ async fn archives_page_has_month_sidebar() {
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("按月份"), "归档页右侧应显示按月份筛选时间线");
     assert!(html.contains("side-months"), "月份应使用时间线样式");
-    assert!(html.contains("href=\"/archives?month="), "月份链接应带 month 参数过滤");
-    assert!(!html.contains("month-more-btn"), "不足半年月份数不应出现展开按钮");
+    assert!(
+        html.contains("href=\"/archives?month="),
+        "月份链接应带 month 参数过滤"
+    );
+    assert!(
+        !html.contains("month-more-btn"),
+        "不足半年月份数不应出现展开按钮"
+    );
 }
 
 #[tokio::test]
@@ -683,7 +835,10 @@ async fn archives_sidebar_show_more_when_many_months() {
 
     let (status, html) = get_html(&app, "/archives").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("month-more-btn"), "超过半年月份数应显示「显示更多月份」按钮");
+    assert!(
+        html.contains("month-more-btn"),
+        "超过半年月份数应显示「显示更多月份」按钮"
+    );
 }
 
 #[tokio::test]

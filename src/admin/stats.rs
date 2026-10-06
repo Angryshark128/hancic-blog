@@ -14,7 +14,7 @@
 
 use crate::error::AppError;
 use crate::services::stats;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, State};
 use axum::response::Response;
 use chrono::{Days, NaiveDate, Utc};
@@ -114,7 +114,9 @@ pub fn effective_range(
             .format("%Y-%m-%d")
             .to_string()
     });
-    let to_str = to.clone().unwrap_or_else(|| today.format("%Y-%m-%d").to_string());
+    let to_str = to
+        .clone()
+        .unwrap_or_else(|| today.format("%Y-%m-%d").to_string());
     (from_str, to_str)
 }
 
@@ -132,8 +134,10 @@ pub fn date_range(from: &str, to: &str) -> Vec<String> {
 
 /// 地区明细：按国家汇总阅读量，并保留国家内的省份明细。
 pub fn region_view(rows: &[stats::RegionStat]) -> Vec<Value> {
-    let mut by_country: std::collections::BTreeMap<String, std::collections::BTreeMap<String, i64>> =
-        std::collections::BTreeMap::new();
+    let mut by_country: std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<String, i64>,
+    > = std::collections::BTreeMap::new();
     for r in rows {
         by_country
             .entry(r.country.clone())
@@ -174,11 +178,13 @@ pub fn region_view(rows: &[stats::RegionStat]) -> Vec<Value> {
 /// 地图原始明细：国家/省份/阅读量，保留省份维度供悬停展开。
 pub fn region_province_view(rows: &[stats::RegionStat]) -> Vec<Value> {
     rows.iter()
-        .map(|r| json!({
-            "country": r.country,
-            "province": r.province,
-            "count": r.count
-        }))
+        .map(|r| {
+            json!({
+                "country": r.country,
+                "province": r.province,
+                "count": r.count
+            })
+        })
         .collect()
 }
 
@@ -203,8 +209,6 @@ pub fn source_label(source: &str) -> &'static str {
 /// 跳转来源视图：key + 中文名 + 计数，阅读降序。
 pub fn source_view(rows: &[stats::SourceStat]) -> Vec<Value> {
     rows.iter()
-        .map(|r| {
-            json!({ "key": r.source, "label": source_label(&r.source), "count": r.count })
-        })
+        .map(|r| json!({ "key": r.source, "label": source_label(&r.source), "count": r.count }))
         .collect()
 }

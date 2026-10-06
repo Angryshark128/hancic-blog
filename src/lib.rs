@@ -51,7 +51,10 @@ pub async fn app(config: Config) -> Result<Router, AppError> {
     let theme_cache = Arc::new(themes::ThemeTeraCache::new());
     // 启动时预热默认主题：首次请求不再承担构建延迟；主题不存在/模板无效时
     // 仅 warn，仍可在切换到正确主题时按需构建。
-    if let Err(err) = theme_cache.get_or_build(&themes_dir, &config.active_theme).await {
+    if let Err(err) = theme_cache
+        .get_or_build(&themes_dir, &config.active_theme)
+        .await
+    {
         tracing::warn!(
             "主题 {} 预热失败，首次请求将按需重建: {err}",
             config.active_theme

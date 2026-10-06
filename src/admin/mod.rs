@@ -5,9 +5,9 @@
 //! 与 CSRF meta。后台页全部附 `Cache-Control: no-store`（M19），渲染走 tera
 //! 自动转义（M22：输出用户内容一律 `{{ }}`，脚本/HTML 不落地在模板里）。
 
+use crate::AppState;
 use crate::error::AppError;
 use crate::services::{settings as settings_service, stats as stats_service};
-use crate::AppState;
 use crate::{auth, session};
 use axum::Router;
 use axum::extract::{ConnectInfo, Form, OriginalUri, Query, State};
@@ -24,13 +24,13 @@ use tower_sessions::Session;
 
 pub mod attachments;
 pub mod backup;
+pub mod columns;
 pub mod migrate;
 pub mod moments;
-pub mod system;
 pub mod posts;
 pub mod settings;
 pub mod stats;
-pub mod columns;
+pub mod system;
 pub mod taxonomy;
 pub mod themes;
 pub mod tokens;
@@ -60,8 +60,14 @@ pub fn router() -> Router<AppState> {
         .route("/api/attachments", get(attachments::api_list))
         .route("/taxonomy", get(taxonomy::list))
         .route("/taxonomy/categories", post(taxonomy::create_category))
-        .route("/taxonomy/categories/{id}/update", post(taxonomy::update_category))
-        .route("/taxonomy/categories/{id}/delete", post(taxonomy::delete_category))
+        .route(
+            "/taxonomy/categories/{id}/update",
+            post(taxonomy::update_category),
+        )
+        .route(
+            "/taxonomy/categories/{id}/delete",
+            post(taxonomy::delete_category),
+        )
         .route("/taxonomy/tags", post(taxonomy::create_tag))
         .route("/taxonomy/tags/{id}/delete", post(taxonomy::delete_tag))
         .route("/columns", get(columns::list).post(columns::create))
@@ -92,7 +98,7 @@ pub fn router() -> Router<AppState> {
         .route("/themes/{name}/activate", post(themes::activate))
         .route("/themes/{name}/uninstall", post(themes::uninstall))
         .route("/themes/{name}/preview", get(themes::preview))
-        .route("/stats", get(admin_index))   // 历史路由兼容：统计已合并进仪表盘
+        .route("/stats", get(admin_index)) // 历史路由兼容：统计已合并进仪表盘
         .route("/stats/clear", post(stats::clear))
         .route("/tokens", get(tokens::list).post(tokens::create))
         .route("/tokens/{id}/created", get(tokens::created_page))
@@ -122,26 +128,86 @@ pub fn router() -> Router<AppState> {
 pub fn build_tera() -> Tera {
     let mut tera = Tera::default();
     tera.add_raw_templates(vec![
-        ("layout.html", include_str!("../../assets/admin_templates/layout.html")),
-        ("login_standalone.html", include_str!("../../assets/admin_templates/login_standalone.html")),
-        ("setup.html", include_str!("../../assets/admin_templates/setup.html")),
-        ("dashboard.html", include_str!("../../assets/admin_templates/dashboard.html")),
-        ("posts_list.html", include_str!("../../assets/admin_templates/posts_list.html")),
-        ("post_edit.html", include_str!("../../assets/admin_templates/post_edit.html")),
-        ("moments.html", include_str!("../../assets/admin_templates/moments.html")),
-        ("attachments.html", include_str!("../../assets/admin_templates/attachments.html")),
-        ("taxonomy.html", include_str!("../../assets/admin_templates/taxonomy.html")),
-        ("columns.html", include_str!("../../assets/admin_templates/columns.html")),
-        ("column_posts.html", include_str!("../../assets/admin_templates/column_posts.html")),
-        ("trails.html", include_str!("../../assets/admin_templates/trails.html")),
-        ("settings.html", include_str!("../../assets/admin_templates/settings.html")),
-        ("system.html", include_str!("../../assets/admin_templates/system.html")),
-        ("themes.html", include_str!("../../assets/admin_templates/themes.html")),
-        ("tokens.html", include_str!("../../assets/admin_templates/tokens.html")),
-        ("tokens_created.html", include_str!("../../assets/admin_templates/tokens_created.html")),
-        ("help.html", include_str!("../../assets/admin_templates/help.html")),
-        ("backup.html", include_str!("../../assets/admin_templates/backup.html")),
-        ("migrate.html", include_str!("../../assets/admin_templates/migrate.html")),
+        (
+            "layout.html",
+            include_str!("../../assets/admin_templates/layout.html"),
+        ),
+        (
+            "login_standalone.html",
+            include_str!("../../assets/admin_templates/login_standalone.html"),
+        ),
+        (
+            "setup.html",
+            include_str!("../../assets/admin_templates/setup.html"),
+        ),
+        (
+            "dashboard.html",
+            include_str!("../../assets/admin_templates/dashboard.html"),
+        ),
+        (
+            "posts_list.html",
+            include_str!("../../assets/admin_templates/posts_list.html"),
+        ),
+        (
+            "post_edit.html",
+            include_str!("../../assets/admin_templates/post_edit.html"),
+        ),
+        (
+            "moments.html",
+            include_str!("../../assets/admin_templates/moments.html"),
+        ),
+        (
+            "attachments.html",
+            include_str!("../../assets/admin_templates/attachments.html"),
+        ),
+        (
+            "taxonomy.html",
+            include_str!("../../assets/admin_templates/taxonomy.html"),
+        ),
+        (
+            "columns.html",
+            include_str!("../../assets/admin_templates/columns.html"),
+        ),
+        (
+            "column_posts.html",
+            include_str!("../../assets/admin_templates/column_posts.html"),
+        ),
+        (
+            "trails.html",
+            include_str!("../../assets/admin_templates/trails.html"),
+        ),
+        (
+            "settings.html",
+            include_str!("../../assets/admin_templates/settings.html"),
+        ),
+        (
+            "system.html",
+            include_str!("../../assets/admin_templates/system.html"),
+        ),
+        (
+            "themes.html",
+            include_str!("../../assets/admin_templates/themes.html"),
+        ),
+        (
+            "tokens.html",
+            include_str!("../../assets/admin_templates/tokens.html"),
+        ),
+        (
+            "tokens_created.html",
+            include_str!("../../assets/admin_templates/tokens_created.html"),
+        ),
+        (
+            "help.html",
+            include_str!("../../assets/admin_templates/help.html"),
+        ),
+        (
+            "backup.html",
+            include_str!("../../assets/admin_templates/backup.html"),
+        ),
+        (
+            "migrate.html",
+            include_str!("../../assets/admin_templates/migrate.html"),
+        ),
     ])
     .expect("内嵌后台模板注册失败");
     tera
@@ -162,12 +228,9 @@ pub(crate) fn redirect(base_path: &str, location: &str) -> Response {
 /// （layout.html 消费）。
 pub(crate) async fn base_ctx(state: &AppState, session: &Session, path: &str) -> (Context, String) {
     let csrf = session::csrf_token(session).await.unwrap_or_default();
-    let settings = settings_service::get_many(
-        &state.db,
-        &["site_name", "site_logo"],
-    )
-    .await
-    .unwrap_or_default();
+    let settings = settings_service::get_many(&state.db, &["site_name", "site_logo"])
+        .await
+        .unwrap_or_default();
     let site_name = settings
         .get("site_name")
         .map(String::as_str)
@@ -209,8 +272,7 @@ pub(crate) fn render_admin(state: &AppState, template: &str, ctx: &Context) -> R
         Ok(html) => html,
         Err(e) => {
             tracing::error!("渲染后台模板 {template} 失败: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, Html("后台页面渲染失败"))
-                .into_response();
+            return (StatusCode::INTERNAL_SERVER_ERROR, Html("后台页面渲染失败")).into_response();
         }
     };
     ([(header::CACHE_CONTROL, "no-store")], Html(html)).into_response()
@@ -266,10 +328,14 @@ fn is_active(path: &str, url: &str) -> bool {
 }
 
 fn nav_value(items: &[NavItem]) -> Value {
-    json!(items
-        .iter()
-        .map(|i| json!({ "url": i.url, "label": i.label, "group": i.group, "active": i.active }))
-        .collect::<Vec<_>>())
+    json!(
+        items
+            .iter()
+            .map(
+                |i| json!({ "url": i.url, "label": i.label, "group": i.group, "active": i.active })
+            )
+            .collect::<Vec<_>>()
+    )
 }
 
 // ---------- 表单 ----------
@@ -472,11 +538,14 @@ async fn fill_dashboard(
 
     // 统计卡使用累计口径；日期范围只控制阅读/点赞趋势。
     let summary_all = stats_service::summary(&state.db, None, None, tz).await?;
-    let summary =
-        stats_service::summary(&state.db, from.as_deref(), to.as_deref(), tz).await?;
+    let summary = stats_service::summary(&state.db, from.as_deref(), to.as_deref(), tz).await?;
     let (labels, views) = if all {
         (
-            summary.trend.iter().map(|d| d.date.clone()).collect::<Vec<_>>(),
+            summary
+                .trend
+                .iter()
+                .map(|d| d.date.clone())
+                .collect::<Vec<_>>(),
             summary.trend.iter().map(|d| d.count).collect::<Vec<_>>(),
         )
     } else {
@@ -493,13 +562,9 @@ async fn fill_dashboard(
         (days, views)
     };
     // 点赞趋势：与阅读趋势同横轴（UTC 日期），区间内无点赞补 0
-    let like_daily = crate::services::likes::daily_like_count(
-        &state.db,
-        from.as_deref(),
-        to.as_deref(),
-        tz,
-    )
-    .await?;
+    let like_daily =
+        crate::services::likes::daily_like_count(&state.db, from.as_deref(), to.as_deref(), tz)
+            .await?;
     let like_counts: HashMap<&str, i64> = like_daily
         .iter()
         .map(|(date, count)| (date.as_str(), *count))
@@ -510,16 +575,24 @@ async fn fill_dashboard(
         .collect();
 
     // 文章排行：累计阅读量/点赞量 Top N，固定展示前 10 不设分页
-    let ranking_metric = stats_service::RankingMetric::from_query(query.get("metric").map(String::as_str));
-    let top = stats_service::top_posts_by_metric(&state.db, ranking_metric, DASHBOARD_TOP_POSTS).await?;
+    let ranking_metric =
+        stats_service::RankingMetric::from_query(query.get("metric").map(String::as_str));
+    let top =
+        stats_service::top_posts_by_metric(&state.db, ranking_metric, DASHBOARD_TOP_POSTS).await?;
     ctx.insert("ranking_metric", ranking_metric.as_str());
-    ctx.insert("ranking_value_label", if ranking_metric == stats_service::RankingMetric::Views { "阅读量" } else { "点赞量" });
+    ctx.insert(
+        "ranking_value_label",
+        if ranking_metric == stats_service::RankingMetric::Views {
+            "阅读量"
+        } else {
+            "点赞量"
+        },
+    );
     ctx.insert("ranking_views_href", &ranking_href(query, "views"));
     ctx.insert("ranking_likes_href", &ranking_href(query, "likes"));
     ctx.insert(
         "posts",
-        &top
-            .iter()
+        &top.iter()
             .map(|(p, value)| {
                 json!({
                     "id": p.id,
@@ -603,11 +676,7 @@ async fn fill_dashboard(
 }
 
 /// GET /admin/help：帮助页（REST API 使用说明 + MCP 集成）。
-async fn help_page(
-    State(state): State<AppState>,
-    session: Session,
-    uri: OriginalUri,
-) -> Response {
+async fn help_page(State(state): State<AppState>, session: Session, uri: OriginalUri) -> Response {
     if session::require_admin(&session).await.is_err() {
         return redirect(&state.config.base_path, "/admin/login");
     }
@@ -645,8 +714,14 @@ mod tests {
         assert_eq!(resolve_app_version(Some(" v1.1.6 ".into())), "1.1.6");
         // 未注入 / dev / 空串 → 回退 Cargo 包版本
         assert_eq!(resolve_app_version(None), env!("CARGO_PKG_VERSION"));
-        assert_eq!(resolve_app_version(Some("dev".into())), env!("CARGO_PKG_VERSION"));
-        assert_eq!(resolve_app_version(Some("  ".into())), env!("CARGO_PKG_VERSION"));
+        assert_eq!(
+            resolve_app_version(Some("dev".into())),
+            env!("CARGO_PKG_VERSION")
+        );
+        assert_eq!(
+            resolve_app_version(Some("  ".into())),
+            env!("CARGO_PKG_VERSION")
+        );
     }
 
     #[test]

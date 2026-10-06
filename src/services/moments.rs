@@ -163,7 +163,10 @@ pub async fn search_moments(
     q: &str,
     limit: i64,
 ) -> Result<Vec<(i64, String, String)>, AppError> {
-    let escaped = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+    let escaped = q
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
     let like = format!("%{escaped}%");
     Ok(sqlx::query_as::<_, (i64, String, String)>(
         "SELECT id, content, substr(created_at, 1, 10) AS d
@@ -199,7 +202,11 @@ pub async fn group_by_day(
     let tz = crate::services::timezone::site_timezone(db).await;
     let mut groups: Vec<(String, Vec<Moment>)> = Vec::new();
     for m in moments {
-        let day = m.created_at.with_timezone(&tz).format("%Y-%m-%d").to_string();
+        let day = m
+            .created_at
+            .with_timezone(&tz)
+            .format("%Y-%m-%d")
+            .to_string();
         match groups.last_mut() {
             Some((d, list)) if *d == day => list.push(m),
             _ => groups.push((day, vec![m])),

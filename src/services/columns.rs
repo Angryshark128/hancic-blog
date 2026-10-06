@@ -28,16 +28,15 @@ pub async fn create_column(
     if get_column_by_slug(db, slug).await?.is_some() {
         return Err(AppError::Conflict("专栏 slug 已存在".into()));
     }
-    let id = sqlx::query(
-        "INSERT INTO columns(slug, name, sort_order, description) VALUES (?, ?, ?, ?)",
-    )
-    .bind(slug)
-    .bind(name)
-    .bind(sort_order)
-    .bind(description)
-    .execute(db)
-    .await?
-    .last_insert_rowid();
+    let id =
+        sqlx::query("INSERT INTO columns(slug, name, sort_order, description) VALUES (?, ?, ?, ?)")
+            .bind(slug)
+            .bind(name)
+            .bind(sort_order)
+            .bind(description)
+            .execute(db)
+            .await?
+            .last_insert_rowid();
     Ok(Column {
         id,
         slug: slug.to_string(),
@@ -48,7 +47,12 @@ pub async fn create_column(
 }
 
 /// 改名/改描述保留原 slug（避免前台 /column/{slug} 链接失效）；slug 仅创建时生成。
-pub async fn update_column(db: &Db, id: i64, name: &str, description: &str) -> Result<Column, AppError> {
+pub async fn update_column(
+    db: &Db,
+    id: i64,
+    name: &str,
+    description: &str,
+) -> Result<Column, AppError> {
     let r = sqlx::query("UPDATE columns SET name = ?, description = ? WHERE id = ?")
         .bind(name)
         .bind(description)
@@ -115,7 +119,11 @@ pub async fn count_columns_posts(db: &Db) -> Result<HashMap<i64, i64>, AppError>
 /// 专栏 slug 生成：空名回退默认；与分类/标签同一套 slugify。
 pub async fn slug_for(name: &str) -> String {
     let s = slugify(name).await;
-    if s.is_empty() { "column".to_string() } else { s }
+    if s.is_empty() {
+        "column".to_string()
+    } else {
+        s
+    }
 }
 
 /// 专栏卡片拖拽排序：按传入 id 顺序重写 sort_order（1..n；新建专栏保持 0 排最前）。

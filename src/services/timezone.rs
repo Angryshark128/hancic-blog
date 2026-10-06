@@ -33,10 +33,9 @@ pub fn local_day_utc_bounds(
 ) -> (Option<String>, Option<String>) {
     let day_start_utc = |d: NaiveDate| -> String {
         let ndt = d.and_hms_opt(0, 0, 0).expect("00:00:00 为合法时刻");
-        let local = tz
-            .from_local_datetime(&ndt)
-            .earliest()
-            .unwrap_or_else(|| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc).with_timezone(tz));
+        let local = tz.from_local_datetime(&ndt).earliest().unwrap_or_else(|| {
+            DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc).with_timezone(tz)
+        });
         local
             .with_timezone(&Utc)
             .format("%Y-%m-%dT%H:%M:%SZ")

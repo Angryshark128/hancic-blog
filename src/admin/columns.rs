@@ -6,7 +6,7 @@
 use crate::error::AppError;
 use crate::models::{PostStatus, PostType};
 use crate::services::{columns, posts};
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, OriginalUri, Path, Query, State};
 use axum::response::Response;
 use serde_json::{Value, json};
@@ -37,9 +37,14 @@ pub async fn list(
         Some("updated_at") => ("updated_at", false),
         _ => ("column_sort", true),
     };
-    let sort = posts::PostSort { field: sort_field, asc };
+    let sort = posts::PostSort {
+        field: sort_field,
+        asc,
+    };
     let cols = columns::list_columns(&state.db).await.unwrap_or_default();
-    let counts = columns::count_columns_posts(&state.db).await.unwrap_or_default();
+    let counts = columns::count_columns_posts(&state.db)
+        .await
+        .unwrap_or_default();
     // 全部已发布文章（一次查询），供各专栏"添加文章"差集
     let (all_posts, _) = posts::list_posts(
         &state.db,
@@ -50,7 +55,10 @@ pub async fn list(
             tag_slug: None,
             column_slug: None,
             month: None,
-            sort: Some(posts::PostSort { field: "updated_at", asc: false }),
+            sort: Some(posts::PostSort {
+                field: "updated_at",
+                asc: false,
+            }),
             page: 1,
             page_size: 500,
         },
@@ -265,27 +273,38 @@ pub async fn add_post(
 ) -> Result<Response, AppError> {
     session::require_admin(&session).await?;
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
-    let post_id = match form.get("post_id").and_then(|v| v.trim().parse::<i64>().ok()) {
+    let post_id = match form
+        .get("post_id")
+        .and_then(|v| v.trim().parse::<i64>().ok())
+    {
         Some(v) => v,
         None => return Ok(fail(&state.config.base_path, "请选择要添加的文章")),
     };
     // 校验专栏存在
-    if !columns::list_columns(&state.db).await?.into_iter().any(|c| c.id == id) {
+    if !columns::list_columns(&state.db)
+        .await?
+        .into_iter()
+        .any(|c| c.id == id)
+    {
         return Ok(fail(&state.config.base_path, "专栏不存在"));
     }
-    match posts::update_post(&state.db, post_id, posts::UpdatePost {
-        title: None,
-        content_md: None,
-        excerpt: None,
-        slug: None,
-        status: None,
-        post_type: None,
-        category_id: None,
-        column_id: Some(Some(id)),
-        tags: None,
-        published_at: None,
-        updated_at: None,
-    })
+    match posts::update_post(
+        &state.db,
+        post_id,
+        posts::UpdatePost {
+            title: None,
+            content_md: None,
+            excerpt: None,
+            slug: None,
+            status: None,
+            post_type: None,
+            category_id: None,
+            column_id: Some(Some(id)),
+            tags: None,
+            published_at: None,
+            updated_at: None,
+        },
+    )
     .await
     {
         Ok(_) => Ok(super::redirect(
@@ -305,23 +324,30 @@ pub async fn remove_post(
 ) -> Result<Response, AppError> {
     session::require_admin(&session).await?;
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
-    let post_id = match form.get("post_id").and_then(|v| v.trim().parse::<i64>().ok()) {
+    let post_id = match form
+        .get("post_id")
+        .and_then(|v| v.trim().parse::<i64>().ok())
+    {
         Some(v) => v,
         None => return Ok(fail(&state.config.base_path, "文章参数缺失")),
     };
-    match posts::update_post(&state.db, post_id, posts::UpdatePost {
-        title: None,
-        content_md: None,
-        excerpt: None,
-        slug: None,
-        status: None,
-        post_type: None,
-        category_id: None,
-        column_id: Some(None),
-        tags: None,
-        published_at: None,
-        updated_at: None,
-    })
+    match posts::update_post(
+        &state.db,
+        post_id,
+        posts::UpdatePost {
+            title: None,
+            content_md: None,
+            excerpt: None,
+            slug: None,
+            status: None,
+            post_type: None,
+            category_id: None,
+            column_id: Some(None),
+            tags: None,
+            published_at: None,
+            updated_at: None,
+        },
+    )
     .await
     {
         Ok(_) => Ok(super::redirect(
@@ -356,7 +382,9 @@ fn urlencode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }
@@ -397,7 +425,11 @@ pub async fn reorder_posts(
 ) -> Result<Response, AppError> {
     session::require_admin(&session).await?;
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
-    if !columns::list_columns(&state.db).await?.into_iter().any(|c| c.id == id) {
+    if !columns::list_columns(&state.db)
+        .await?
+        .into_iter()
+        .any(|c| c.id == id)
+    {
         return Ok(fail(&state.config.base_path, "专栏不存在"));
     }
     let ids = parse_ids(form.get("ids"));

@@ -1,9 +1,9 @@
 mod common;
+use chrono_tz::Tz;
 use common::test_app;
 use hancic::ipregion::Searcher;
 use hancic::models::{PostStatus, PostType};
 use hancic::services::{posts, stats};
-use chrono_tz::Tz;
 use std::net::IpAddr;
 
 /// 私有/保留地址一律归为「本地」。
@@ -37,32 +37,45 @@ async fn ipv6_unknown_is_local() {
 async fn record_view_and_query_summary() {
     let (_app, pool) = test_app("stats").await;
     let searcher = Searcher::new(&common::xdb_path()).unwrap();
-    let post = posts::create_post(&pool, posts::NewPost {
-        title: "统计文".into(),
-        content_md: "# 标题\n正文".into(),
-        excerpt: None,
-        slug: Some("stats-post".into()),
-        status: PostStatus::Published,
-        post_type: PostType::Post,
-        category_id: None,
-        column_id: None,
-        tags: vec![],
-    })
+    let post = posts::create_post(
+        &pool,
+        posts::NewPost {
+            title: "统计文".into(),
+            content_md: "# 标题\n正文".into(),
+            excerpt: None,
+            slug: Some("stats-post".into()),
+            status: PostStatus::Published,
+            post_type: PostType::Post,
+            category_id: None,
+            column_id: None,
+            tags: vec![],
+        },
+    )
     .await
     .unwrap();
 
     // 两次公网（南京电信，同一地区分组）+ 一次私有 IP
     for ip in ["114.114.114.114", "114.114.114.114", "192.168.1.10"] {
-        stats::record_view(&pool, post.id, ip, "test-ua", "https://example.com/", &searcher)
-            .await
-            .unwrap();
+        stats::record_view(
+            &pool,
+            post.id,
+            ip,
+            "test-ua",
+            "https://example.com/",
+            &searcher,
+        )
+        .await
+        .unwrap();
     }
 
     let tz = Tz::Asia__Shanghai;
     let s = stats::summary(&pool, None, None, &tz).await.unwrap();
     assert_eq!(s.total_views, 3);
     assert_eq!(s.total_posts, 1);
-    let today = chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d").to_string();
+    let today = chrono::Utc::now()
+        .with_timezone(&tz)
+        .format("%Y-%m-%d")
+        .to_string();
     assert_eq!(s.trend.iter().map(|d| d.count).sum::<i64>(), 3);
     assert!(
         s.trend.iter().any(|d| d.date == today && d.count == 3),
@@ -78,9 +91,15 @@ async fn record_view_and_query_summary() {
     assert_eq!(fresh.views, 3);
 
     let regions = stats::by_region(&pool, None, None, &tz).await.unwrap();
-    let local = regions.iter().find(|r| r.country == "本地").expect("应有本地分组");
+    let local = regions
+        .iter()
+        .find(|r| r.country == "本地")
+        .expect("应有本地分组");
     assert_eq!(local.count, 1);
-    let cn = regions.iter().find(|r| r.country == "中国").expect("应有中国分组");
+    let cn = regions
+        .iter()
+        .find(|r| r.country == "中国")
+        .expect("应有中国分组");
     assert_eq!(cn.count, 2);
 
     // 时间范围过滤：昨天（本地）无记录
@@ -90,7 +109,9 @@ async fn record_view_and_query_summary() {
         .unwrap()
         .format("%Y-%m-%d")
         .to_string();
-    let s2 = stats::summary(&pool, Some(&yesterday), Some(&yesterday), &tz).await.unwrap();
+    let s2 = stats::summary(&pool, Some(&yesterday), Some(&yesterday), &tz)
+        .await
+        .unwrap();
     assert_eq!(s2.total_views, 0);
 
     // 清空日志后 total_views 归零
@@ -103,17 +124,20 @@ async fn record_view_and_query_summary() {
 #[tokio::test]
 async fn post_page_http_records_view() {
     let (addr, client, pool) = common::start_server("stats-http").await;
-    let p = posts::create_post(&pool, posts::NewPost {
-        title: "HTTP 统计".into(),
-        content_md: "# 标题\n正文".into(),
-        excerpt: None,
-        slug: Some("http-stats".into()),
-        status: PostStatus::Published,
-        post_type: PostType::Post,
-        category_id: None,
-        column_id: None,
-        tags: vec![],
-    })
+    let p = posts::create_post(
+        &pool,
+        posts::NewPost {
+            title: "HTTP 统计".into(),
+            content_md: "# 标题\n正文".into(),
+            excerpt: None,
+            slug: Some("http-stats".into()),
+            status: PostStatus::Published,
+            post_type: PostType::Post,
+            category_id: None,
+            column_id: None,
+            tags: vec![],
+        },
+    )
     .await
     .unwrap();
 
@@ -135,12 +159,13 @@ async fn post_page_http_records_view() {
     .unwrap();
     assert_eq!(count, 1);
 
-    let row: (String, String, String, String) = sqlx::query_as::<_, (String, String, String, String)>(
-        "SELECT country, ip, ua, referer FROM page_views",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let row: (String, String, String, String) =
+        sqlx::query_as::<_, (String, String, String, String)>(
+            "SELECT country, ip, ua, referer FROM page_views",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(row.0, "中国");
     assert_eq!(row.1, "114.114.114.114");
     assert_eq!(row.2, "test-http-ua");

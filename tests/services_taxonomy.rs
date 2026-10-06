@@ -7,14 +7,23 @@ use hancic::services::taxonomy;
 async fn category_crud_and_unique_slug() {
     let cfg = test_config("taxonomy");
     let pool = db::init(&cfg.data_dir).await.unwrap();
-    let c = taxonomy::create_category(&pool, "技术", "tech", 1).await.unwrap();
+    let c = taxonomy::create_category(&pool, "技术", "tech", 1)
+        .await
+        .unwrap();
     assert_eq!(c.name, "技术");
     let dup = taxonomy::create_category(&pool, "技术二", "tech", 2).await;
     assert!(dup.is_err());
-    let updated = taxonomy::update_category(&pool, c.id, "编程", "code", 0).await.unwrap();
+    let updated = taxonomy::update_category(&pool, c.id, "编程", "code", 0)
+        .await
+        .unwrap();
     assert_eq!(updated.slug, "code");
     taxonomy::delete_category(&pool, c.id).await.unwrap();
-    assert!(taxonomy::get_category_by_slug(&pool, "code").await.unwrap().is_none());
+    assert!(
+        taxonomy::get_category_by_slug(&pool, "code")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]

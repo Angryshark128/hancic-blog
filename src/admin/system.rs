@@ -4,7 +4,7 @@
 //! 主题模式/时区（settings 键，前台即时生效）；POST /admin/system/password
 //! 修改密码（校验逻辑同原设置页）。
 
-use crate::{auth, session, AppState};
+use crate::{AppState, auth, session};
 use axum::extract::{Form, OriginalUri, State};
 use axum::response::Response;
 use std::collections::HashMap;
@@ -47,11 +47,7 @@ const TIMEZONES: [&str; 24] = [
 
 // ---------- 页面 ----------
 
-pub async fn page(
-    State(state): State<AppState>,
-    session: Session,
-    uri: OriginalUri,
-) -> Response {
+pub async fn page(State(state): State<AppState>, session: Session, uri: OriginalUri) -> Response {
     if session::require_admin(&session).await.is_err() {
         return super::redirect(&state.config.base_path, "/admin/login");
     }
@@ -85,7 +81,15 @@ pub async fn save(
     }
     let errors = validate(&form);
     if !errors.is_empty() {
-        return render(&state, &session, uri.path(), Some(&form), &errors.join("；"), "").await;
+        return render(
+            &state,
+            &session,
+            uri.path(),
+            Some(&form),
+            &errors.join("；"),
+            "",
+        )
+        .await;
     }
     for key in FORM_KEYS {
         if let Some(value) = form.get(key) {
@@ -121,7 +125,15 @@ pub async fn password(
         .await
         .is_err()
     {
-        return render(&state, &session, uri.path(), None, "", "安全校验失败，请刷新页面后重试").await;
+        return render(
+            &state,
+            &session,
+            uri.path(),
+            None,
+            "",
+            "安全校验失败，请刷新页面后重试",
+        )
+        .await;
     }
     let old = form.get("old_password").map(String::as_str).unwrap_or("");
     let new = form.get("new_password").map(String::as_str).unwrap_or("");
@@ -129,8 +141,15 @@ pub async fn password(
 
     // 旧密码校验：argon2 为 CPU 密集操作，走 spawn_blocking（与登录一致）
     let Some(hash) = auth::get_password_hash(&state.db).await.ok().flatten() else {
-        return render(&state, &session, uri.path(), None, "", "尚未设置管理员密码，请通过安装流程初始化")
-            .await;
+        return render(
+            &state,
+            &session,
+            uri.path(),
+            None,
+            "",
+            "尚未设置管理员密码，请通过安装流程初始化",
+        )
+        .await;
     };
     let new_same_as_old = new == old;
     let old_owned = old.to_string();
@@ -144,10 +163,26 @@ pub async fn password(
         return render(&state, &session, uri.path(), None, "", msg.as_str()).await;
     }
     if new_same_as_old {
-        return render(&state, &session, uri.path(), None, "", "新密码不能与旧密码相同").await;
+        return render(
+            &state,
+            &session,
+            uri.path(),
+            None,
+            "",
+            "新密码不能与旧密码相同",
+        )
+        .await;
     }
     if new != confirm {
-        return render(&state, &session, uri.path(), None, "", "两次输入的新密码不一致").await;
+        return render(
+            &state,
+            &session,
+            uri.path(),
+            None,
+            "",
+            "两次输入的新密码不一致",
+        )
+        .await;
     }
     match auth::set_password(&state.db, new).await {
         Ok(()) => {
@@ -161,7 +196,15 @@ pub async fn password(
         }
         Err(e) => {
             tracing::error!("修改密码失败: {e:?}");
-            render(&state, &session, uri.path(), None, "", "密码修改失败，请重试").await
+            render(
+                &state,
+                &session,
+                uri.path(),
+                None,
+                "",
+                "密码修改失败，请重试",
+            )
+            .await
         }
     }
 }
@@ -185,8 +228,9 @@ async fn render(
             .map(|k| (k.to_string(), form.get(*k).cloned().unwrap_or_default()))
             .collect(),
         None => {
-            let mut v =
-                crate::services::settings::get_many(&state.db, &FORM_KEYS).await.unwrap_or_default();
+            let mut v = crate::services::settings::get_many(&state.db, &FORM_KEYS)
+                .await
+                .unwrap_or_default();
             for k in FORM_KEYS {
                 v.entry(k.to_string()).or_default();
             }

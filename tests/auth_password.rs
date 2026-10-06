@@ -19,6 +19,8 @@ async fn set_password_requires_min_length() {
     let r = auth::set_password(&pool, "short").await;
     assert!(r.is_err());
     assert!(!auth::has_password(&pool).await.unwrap());
-    auth::set_password(&pool, "a-strong-password!").await.unwrap();
+    auth::set_password(&pool, "a-strong-password!")
+        .await
+        .unwrap();
     assert!(auth::has_password(&pool).await.unwrap());
 }

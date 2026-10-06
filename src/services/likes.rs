@@ -147,12 +147,11 @@ pub async fn toggle_like(
 
 pub async fn recent_like_count(db: &Db, days: i64) -> Result<i64, AppError> {
     let cutoff = (chrono::Utc::now() - chrono::Duration::days(days)).to_rfc3339();
-    let total = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM content_likes WHERE created_at >= ?",
-    )
-    .bind(cutoff)
-    .fetch_one(db)
-    .await?;
+    let total =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM content_likes WHERE created_at >= ?")
+            .bind(cutoff)
+            .fetch_one(db)
+            .await?;
     Ok(total)
 }
 
@@ -172,8 +171,7 @@ pub async fn daily_like_count(
     to: Option<&str>,
     tz: &chrono_tz::Tz,
 ) -> Result<Vec<(String, i64)>, AppError> {
-    let (lower, upper) =
-        crate::services::timezone::local_day_utc_bounds(from, to, tz);
+    let (lower, upper) = crate::services::timezone::local_day_utc_bounds(from, to, tz);
     let mut conds: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
     if let Some(f) = lower {
@@ -190,9 +188,7 @@ pub async fn daily_like_count(
         format!("WHERE {}", conds.join(" AND "))
     };
     // 逐条按站点时区归属自然日（SQLite 无 IANA 时区转换）
-    let sql = format!(
-        "SELECT created_at FROM content_likes {where_sql} ORDER BY created_at"
-    );
+    let sql = format!("SELECT created_at FROM content_likes {where_sql} ORDER BY created_at");
     let mut q = sqlx::query(&sql);
     for b in &binds {
         q = q.bind(b);
@@ -201,13 +197,10 @@ pub async fn daily_like_count(
     let mut by_day: Vec<(String, i64)> = Vec::new();
     for row in rows {
         let raw: String = row.get(0);
-        let parsed = chrono::NaiveDateTime::parse_from_str(
-            raw.trim_end_matches('Z'),
-            "%Y-%m-%dT%H:%M:%S",
-        );
+        let parsed =
+            chrono::NaiveDateTime::parse_from_str(raw.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S");
         let Ok(ndt) = parsed else { continue };
-        let utc_dt =
-            chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc);
+        let utc_dt = chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc);
         let day = utc_dt.with_timezone(tz).format("%Y-%m-%d").to_string();
         match by_day.last_mut() {
             Some((d, c)) if *d == day => *c += 1,
@@ -250,9 +243,7 @@ where
         LikeContentType::Post => "posts",
         LikeContentType::Moment => "moments",
     };
-    let sql = format!(
-        "UPDATE {table} SET like_count = MAX(0, like_count + ?) WHERE id = ?"
-    );
+    let sql = format!("UPDATE {table} SET like_count = MAX(0, like_count + ?) WHERE id = ?");
     sqlx::query(&sql)
         .bind(delta)
         .bind(content_id)

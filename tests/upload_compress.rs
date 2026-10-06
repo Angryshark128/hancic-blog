@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::{setup_password, start_server, PNG_1x1};
+use common::{PNG_1x1, setup_password, start_server};
 use hancic::services::uploads;
 use image::GenericImageView;
 
@@ -12,7 +12,10 @@ use image::GenericImageView;
 #[tokio::test]
 async fn upload_small_png_creates_attachment() {
     let (addr, client, pool) = start_server("upload-png").await;
-    assert!(setup_password(&client, &addr).await, "应能设置密码并自动登录");
+    assert!(
+        setup_password(&client, &addr).await,
+        "应能设置密码并自动登录"
+    );
 
     let form = reqwest::multipart::Form::new().part(
         "files",
@@ -34,7 +37,10 @@ async fn upload_small_png_creates_attachment() {
     assert_eq!(data.len(), 1);
     assert_eq!(data[0]["kind"], "image");
     let rel_path = data[0]["path"].as_str().expect("应含 path").to_string();
-    assert!(rel_path.starts_with("image/"), "path 应以 image/ 开头: {rel_path}");
+    assert!(
+        rel_path.starts_with("image/"),
+        "path 应以 image/ 开头: {rel_path}"
+    );
 
     // DB 有记录
     let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM attachments")
@@ -44,10 +50,8 @@ async fn upload_small_png_creates_attachment() {
     assert_eq!(count, 1);
 
     // 磁盘文件存在（数据目录由 common::temp_data_dir 的命名约定决定）
-    let data_dir = std::env::temp_dir().join(format!(
-        "hancic-test-upload-png-{}",
-        std::process::id()
-    ));
+    let data_dir =
+        std::env::temp_dir().join(format!("hancic-test-upload-png-{}", std::process::id()));
     let full = data_dir.join("uploads").join(&rel_path);
     assert!(full.exists(), "磁盘文件应存在: {}", full.display());
 }
@@ -56,7 +60,10 @@ async fn upload_small_png_creates_attachment() {
 #[tokio::test]
 async fn upload_rejects_disallowed_type() {
     let (addr, client, _pool) = start_server("upload-reject").await;
-    assert!(setup_password(&client, &addr).await, "应能设置密码并自动登录");
+    assert!(
+        setup_password(&client, &addr).await,
+        "应能设置密码并自动登录"
+    );
 
     let form = reqwest::multipart::Form::new().part(
         "files",
@@ -80,7 +87,10 @@ async fn upload_rejects_disallowed_type() {
 #[tokio::test]
 async fn upload_rejects_oversize() {
     let (addr, client, _pool) = start_server("upload-oversize").await;
-    assert!(setup_password(&client, &addr).await, "应能设置密码并自动登录");
+    assert!(
+        setup_password(&client, &addr).await,
+        "应能设置密码并自动登录"
+    );
 
     let big = vec![0u8; 10 * 1024 * 1024 + 1];
     let form = reqwest::multipart::Form::new().part(
@@ -106,7 +116,10 @@ async fn upload_rejects_oversize() {
 #[tokio::test]
 async fn upload_rejects_oversized_dimensions() {
     let (addr, client, _pool) = start_server("upload-bomb").await;
-    assert!(setup_password(&client, &addr).await, "应能设置密码并自动登录");
+    assert!(
+        setup_password(&client, &addr).await,
+        "应能设置密码并自动登录"
+    );
 
     let png = fake_large_png(30000, 30000);
     // 前置：声明尺寸能被读到（测试自身有效）
@@ -162,7 +175,9 @@ fn fake_large_png(width: u32, height: u32) -> Vec<u8> {
     out.extend_from_slice(&ihdr);
     out.extend_from_slice(&crc32(&ihdr).to_be_bytes());
     // IDAT：zlib 头 + 空存储块（BFINAL=1,BTYPE=00；LEN=0,NLEN=0xffff）+ adler32 占位
-    let idat = vec![0x78, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00];
+    let idat = vec![
+        0x78, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+    ];
     out.extend_from_slice(&(idat.len() as u32).to_be_bytes());
     out.extend_from_slice(b"IDAT");
     out.extend_from_slice(&idat);
@@ -205,8 +220,7 @@ async fn gif_is_not_compressed() {
     let mut gif_bytes = Vec::new();
     {
         let mut cur = std::io::Cursor::new(&mut gif_bytes);
-        let mut encoder =
-            image::codecs::gif::GifEncoder::new(&mut cur);
+        let mut encoder = image::codecs::gif::GifEncoder::new(&mut cur);
         encoder
             .encode_frame(image::Frame::new(image::RgbaImage::from_pixel(
                 1,

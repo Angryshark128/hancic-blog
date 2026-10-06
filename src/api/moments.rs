@@ -6,15 +6,15 @@
 //! 删除成功 `204`（不存在 404）。更新为部分更新：`content` / `attachment_ids`
 //! 只更新提供的字段（attachment_ids 传数组即整体替换，`[]` 表示清空附件）。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::models::Moment;
 use crate::services::{moments, uploads};
-use crate::AppState;
+use axum::Json;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
@@ -62,7 +62,11 @@ pub async fn list(
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, AppError> {
     api::require_admin_or_token(&state, &session, &headers).await?;
-    let page = query.get("page").and_then(|s| s.parse::<i64>().ok()).unwrap_or(1).max(1);
+    let page = query
+        .get("page")
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(1)
+        .max(1);
     let page_size = query
         .get("page_size")
         .and_then(|s| s.parse::<i64>().ok())
@@ -71,13 +75,14 @@ pub async fn list(
     let asc = query.get("order").is_some_and(|s| s == "asc");
     let q = query.get("q").map(String::as_str);
     let month = query.get("month").map(String::as_str);
-    let (items, total) =
-        moments::list_moments(&state.db, month, asc, q, page, page_size).await?;
+    let (items, total) = moments::list_moments(&state.db, month, asc, q, page, page_size).await?;
     let mut out = Vec::with_capacity(items.len());
     for m in &items {
         out.push(moment_json(&state, m).await?);
     }
-    Ok(Json(json!({ "data": { "items": out, "total": total, "page": page, "page_size": page_size } })))
+    Ok(Json(
+        json!({ "data": { "items": out, "total": total, "page": page, "page_size": page_size } }),
+    ))
 }
 
 /// GET /api/moments/{id}：说说详情（含附件）。
@@ -131,7 +136,9 @@ pub async fn update(
     let updated = moments::get_moment(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound("说说不存在".into()))?;
-    Ok(Json(json!({ "data": moment_json(&state, &updated).await? })))
+    Ok(Json(
+        json!({ "data": moment_json(&state, &updated).await? }),
+    ))
 }
 
 /// 说说 JSON：正文/时间/点赞 + 附件数组（url 指向前台 /uploads 静态路径）。

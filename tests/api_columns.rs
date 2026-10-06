@@ -6,10 +6,10 @@
 //! 移除文章 204 + column_id 置空；删除专栏 204/404。
 
 mod common;
-use common::test_app;
+use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
-use axum::Router;
+use common::test_app;
 use hancic::db::Db;
 use hancic::services::tokens;
 use serde_json::{Value, json};
@@ -162,7 +162,11 @@ async fn api_columns_walkthrough() {
         Some(json!({"post_id": 999999})),
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "不存在的文章应 400: {body}");
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "不存在的文章应 400: {body}"
+    );
     let (status, _) = send(
         &app,
         Method::POST,
@@ -215,7 +219,10 @@ async fn api_columns_walkthrough() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body["data"]["column_id"].is_null(), "移除后 column_id 应清空");
+    assert!(
+        body["data"]["column_id"].is_null(),
+        "移除后 column_id 应清空"
+    );
 
     // 10. 删除专栏 → 204，再删 → 404
     let (status, _) = send(

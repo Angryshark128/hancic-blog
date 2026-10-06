@@ -6,8 +6,8 @@
 //! POST /admin/stats/clear（带 CSRF）后总阅读归零；历史 /admin/stats 重定向到仪表盘。
 
 mod common;
-use common::{extract_csrf, login_admin, start_server};
 use chrono_tz::Tz;
+use common::{extract_csrf, login_admin, start_server};
 use hancic::models::{PostStatus, PostType};
 use hancic::services::posts;
 
@@ -92,7 +92,11 @@ async fn stats_overview_region_detail_and_clear() {
     }
 
     // 历史 /admin/stats 直接渲染仪表盘（统计已合并）
-    let res = client.get(format!("{base}/admin/stats")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/stats"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200, "历史统计路由应直接渲染仪表盘");
 
     // 仪表盘：总阅读卡片 = 3，趋势横轴含当日
@@ -104,34 +108,69 @@ async fn stats_overview_region_detail_and_clear() {
         "总阅读卡片应为 3: {html}"
     );
     let tz = Tz::Asia__Shanghai;
-    let today = chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d").to_string();
+    let today = chrono::Utc::now()
+        .with_timezone(&tz)
+        .format("%Y-%m-%d")
+        .to_string();
     assert!(html.contains(&today), "趋势横轴应含站点时区当日 {today}");
     // 点赞趋势：当日点赞数 = 2（两条 content_likes 记录），chart_data 双数据集
-    let chart_start = html.find("window.chartData = ").map(|i| i + "window.chartData = ".len())
+    let chart_start = html
+        .find("window.chartData = ")
+        .map(|i| i + "window.chartData = ".len())
         .expect("仪表盘应输出 chartData");
-    let chart_json = html[chart_start..].split("</script>").next().unwrap_or("").trim();
+    let chart_json = html[chart_start..]
+        .split("</script>")
+        .next()
+        .unwrap_or("")
+        .trim();
     let chart_json = chart_json.strip_suffix(';').unwrap_or(chart_json);
-    let chart: serde_json::Value = serde_json::from_str(chart_json)
-        .unwrap_or_else(|e| panic!("chartData 应为合法 JSON: {e}"));
+    let chart: serde_json::Value =
+        serde_json::from_str(chart_json).unwrap_or_else(|e| panic!("chartData 应为合法 JSON: {e}"));
     assert!(chart.get("views").is_some(), "趋势数据应含阅读序列");
-    let likes = chart.get("likes").and_then(|v| v.as_array()).expect("趋势数据应含点赞序列");
-    assert_eq!(likes.last().and_then(|v| v.as_i64()), Some(2),
-        "点赞趋势当日应为 2: {likes:?}");
+    let likes = chart
+        .get("likes")
+        .and_then(|v| v.as_array())
+        .expect("趋势数据应含点赞序列");
+    assert_eq!(
+        likes.last().and_then(|v| v.as_i64()),
+        Some(2),
+        "点赞趋势当日应为 2: {likes:?}"
+    );
     assert!(html.contains("阅读 / 点赞趋势"), "趋势标题应标注阅读与点赞");
 
     // 文章排行：两篇文章都在仪表盘排行区
-    assert!(html.contains("统计文章一") && html.contains("统计文章二"), "排行应含两篇文章");
+    assert!(
+        html.contains("统计文章一") && html.contains("统计文章二"),
+        "排行应含两篇文章"
+    );
 
     // 地区明细：国家/省份两列（城市并入省份），中国/美国/江苏可见
-    assert!(html.contains("中国") && html.contains("美国"), "地区应含中国与美国");
+    assert!(
+        html.contains("中国") && html.contains("美国"),
+        "地区应含中国与美国"
+    );
     assert!(html.contains("江苏"), "地区应含江苏（城市并入省份）");
-    assert!(html.contains("<th>国家</th>") && html.contains("<th>地区数</th>") && html.contains("<th>省份明细</th>"), "地区应国家汇总并保留省份明细");
+    assert!(
+        html.contains("<th>国家</th>")
+            && html.contains("<th>地区数</th>")
+            && html.contains("<th>省份明细</th>"),
+        "地区应国家汇总并保留省份明细"
+    );
     assert!(!html.contains("<th>城市</th>"), "地区不应再有城市列");
     // 地区地图：中国省份以 choropleth 展示（容器 + 注入 JSON）
-    assert!(html.contains(r#"id="region-map""#), "有中国省份数据时应渲染地图容器");
-    assert!(html.contains("window.regionData = "), "应注入地区地图数据 JSON");
+    assert!(
+        html.contains(r#"id="region-map""#),
+        "有中国省份数据时应渲染地图容器"
+    );
+    assert!(
+        html.contains("window.regionData = "),
+        "应注入地区地图数据 JSON"
+    );
     // 文章排行：固定 Top 10，无分页控件
-    assert!(!html.contains("上一页") && !html.contains("下一页"), "Top10 排行不应分页");
+    assert!(
+        !html.contains("上一页") && !html.contains("下一页"),
+        "Top10 排行不应分页"
+    );
 
     // 「全部」范围（?range=all）：表单留空 + 快捷钮高亮「全部」
     let res = client
@@ -146,7 +185,8 @@ async fn stats_overview_region_detail_and_clear() {
         "全部快捷钮应高亮: {html}"
     );
     assert!(
-        html.contains(r#"name="from" class="date-input" value=""#) && html.contains(r#"name="to" class="date-input" value=""#),
+        html.contains(r#"name="from" class="date-input" value=""#)
+            && html.contains(r#"name="to" class="date-input" value=""#),
         "全部模式下 from/to 输入框应留空"
     );
     assert!(
@@ -259,17 +299,38 @@ async fn dashboard_range_only_filters_trend() {
 
     assert!(html.contains("总阅读"), "阅读卡应为累计文案: {html}");
     assert!(html.contains("总点赞"), "点赞卡应为累计文案: {html}");
-    assert!(html.contains(r#"<div class="stat-num">2</div>"#), "累计阅读应为 2: {html}");
+    assert!(
+        html.contains(r#"<div class="stat-num">2</div>"#),
+        "累计阅读应为 2: {html}"
+    );
 
-    let chart_start = html.find("window.chartData = ").map(|i| i + "window.chartData = ".len())
+    let chart_start = html
+        .find("window.chartData = ")
+        .map(|i| i + "window.chartData = ".len())
         .expect("仪表盘应输出 chartData");
-    let chart_json = html[chart_start..].split("</script>").next().unwrap_or("").trim();
+    let chart_json = html[chart_start..]
+        .split("</script>")
+        .next()
+        .unwrap_or("")
+        .trim();
     let chart_json = chart_json.strip_suffix(';').unwrap_or(chart_json);
     let chart: serde_json::Value = serde_json::from_str(chart_json).unwrap();
-    assert_eq!(chart["views"].as_array().and_then(|v| v.last()).and_then(|v| v.as_i64()), Some(1),
-        "趋势应只含近 30 天的 1 次阅读: {chart:?}");
-    assert_eq!(chart["likes"].as_array().and_then(|v| v.last()).and_then(|v| v.as_i64()), Some(1),
-        "趋势应只含近 30 天的 1 次点赞: {chart:?}");
+    assert_eq!(
+        chart["views"]
+            .as_array()
+            .and_then(|v| v.last())
+            .and_then(|v| v.as_i64()),
+        Some(1),
+        "趋势应只含近 30 天的 1 次阅读: {chart:?}"
+    );
+    assert_eq!(
+        chart["likes"]
+            .as_array()
+            .and_then(|v| v.last())
+            .and_then(|v| v.as_i64()),
+        Some(1),
+        "趋势应只含近 30 天的 1 次点赞: {chart:?}"
+    );
 }
 
 /// 文章排行支持累计阅读量/点赞量切换，默认阅读量。
@@ -409,24 +470,51 @@ async fn dashboard_region_detail_groups_by_country() {
         .await
         .unwrap();
 
-    assert!(html.contains("<th>国家</th>") && html.contains("<th>地区数</th>"),
-        "地区表应使用国家/地区数两列表头: {html}");
-    let us_row = html.split("<tr>").find(|row| row.contains("<td>美国</td>")).expect("应有美国行");
-    let cn_row = html.split("<tr>").find(|row| row.contains("<td>中国</td>")).expect("应有中国行");
-    assert!(us_row.contains("<td>2</td>") && us_row.contains("5</td>"), "美国行应含 2 个地区和 5 次阅读: {us_row}");
-    assert!(cn_row.contains("<td>2</td>") && cn_row.contains("9</td>"), "中国行应含 2 个地区和 9 次阅读: {cn_row}");
-    assert!(!html.contains("<td>加利福尼亚</td>"), "省份不应单独成为明细行: {html}");
-    assert!(html.contains("加利福尼亚") && html.contains("纽约"), "省份明细应保留在地图数据中: {html}");
+    assert!(
+        html.contains("<th>国家</th>") && html.contains("<th>地区数</th>"),
+        "地区表应使用国家/地区数两列表头: {html}"
+    );
+    let us_row = html
+        .split("<tr>")
+        .find(|row| row.contains("<td>美国</td>"))
+        .expect("应有美国行");
+    let cn_row = html
+        .split("<tr>")
+        .find(|row| row.contains("<td>中国</td>"))
+        .expect("应有中国行");
+    assert!(
+        us_row.contains("<td>2</td>") && us_row.contains("5</td>"),
+        "美国行应含 2 个地区和 5 次阅读: {us_row}"
+    );
+    assert!(
+        cn_row.contains("<td>2</td>") && cn_row.contains("9</td>"),
+        "中国行应含 2 个地区和 9 次阅读: {cn_row}"
+    );
+    assert!(
+        !html.contains("<td>加利福尼亚</td>"),
+        "省份不应单独成为明细行: {html}"
+    );
+    assert!(
+        html.contains("加利福尼亚") && html.contains("纽约"),
+        "省份明细应保留在地图数据中: {html}"
+    );
     // 省份明细改为「按钮 + 分页对话框」：行内不再用 <details>（展开会撑高行高），
     // 数据仍留在行内 hidden 的列表里供对话框读取
-    assert!(!html.contains("<details"), "省份明细不应再用行内折叠面板: {html}");
-    let trigger = us_row.find("region-detail-trigger").expect("美国行应有「查看明细」按钮");
+    assert!(
+        !html.contains("<details"),
+        "省份明细不应再用行内折叠面板: {html}"
+    );
+    let trigger = us_row
+        .find("region-detail-trigger")
+        .expect("美国行应有「查看明细」按钮");
     assert!(
         us_row[trigger..].contains("data-country=\"美国\""),
         "触发按钮应带国家名（对话框标题用）: {us_row}"
     );
     assert!(
-        us_row.contains("region-detail-list") && us_row.contains("加利福尼亚：2") && us_row.contains("纽约：3"),
+        us_row.contains("region-detail-list")
+            && us_row.contains("加利福尼亚：2")
+            && us_row.contains("纽约：3"),
         "行内 hidden 列表应保留省份明细（含计数）: {us_row}"
     );
 }
@@ -485,12 +573,23 @@ async fn dashboard_source_counts_sum_to_total() {
         .await
         .unwrap();
     let marker = "window.chartSources = ";
-    let start = html.find(marker).map(|i| i + marker.len()).expect("应注入来源数据");
-    let raw = html[start..].split("</script>").next().unwrap().trim().trim_end_matches(';');
+    let start = html
+        .find(marker)
+        .map(|i| i + marker.len())
+        .expect("应注入来源数据");
+    let raw = html[start..]
+        .split("</script>")
+        .next()
+        .unwrap()
+        .trim()
+        .trim_end_matches(';');
     let sources: Vec<serde_json::Value> = serde_json::from_str(raw).unwrap();
     let total: i64 = sources.iter().filter_map(|s| s["count"].as_i64()).sum();
     assert_eq!(total, 5, "来源分类合计应等于阅读日志总数: {sources:?}");
     for label in ["直接访问", "Google 搜索", "百度搜索", "GitHub", "其他"] {
-        assert!(sources.iter().any(|s| s["label"] == label), "来源应包含 {label}: {sources:?}");
+        assert!(
+            sources.iter().any(|s| s["label"] == label),
+            "来源应包含 {label}: {sources:?}"
+        );
     }
 }

@@ -9,7 +9,7 @@
 use crate::error::AppError;
 use crate::models::{Attachment, Moment};
 use crate::services::moments;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, OriginalUri, Path, Query, State};
 use axum::response::Response;
 use serde_json::{Value, json};
@@ -44,23 +44,34 @@ pub async fn list(
         .trim()
         .to_string();
     let asc = query.get("order").map(String::as_str).unwrap_or("desc") == "asc";
-    let (items, total) = match moments::list_moments(&state.db, month.as_deref(), asc, Some(&q), page, PAGE_SIZE).await {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::error!("后台说说列表查询失败: {e:?}");
-            (vec![], 0)
-        }
-    };
+    let (items, total) =
+        match moments::list_moments(&state.db, month.as_deref(), asc, Some(&q), page, PAGE_SIZE)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!("后台说说列表查询失败: {e:?}");
+                (vec![], 0)
+            }
+        };
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
     ctx.insert("moments", &moment_list_value(&state, &items).await);
-    ctx.insert("flash_msg", &query.get("msg").map(String::as_str).unwrap_or(""));
+    ctx.insert(
+        "flash_msg",
+        &query.get("msg").map(String::as_str).unwrap_or(""),
+    );
     ctx.insert("total", &total);
     ctx.insert("page", &page);
     ctx.insert("total_pages", &((total + PAGE_SIZE - 1) / PAGE_SIZE).max(1));
     let months = moments::month_list(&state.db).await.unwrap_or_default();
     ctx.insert(
         "months",
-        &json!(months.iter().map(|m| json!({ "month": m })).collect::<Vec<_>>()),
+        &json!(
+            months
+                .iter()
+                .map(|m| json!({ "month": m }))
+                .collect::<Vec<_>>()
+        ),
     );
     ctx.insert(
         "filters",
@@ -142,7 +153,10 @@ pub async fn create(
     if content.trim().is_empty() && attachment_ids.is_empty() {
         return Ok(super::redirect(
             &state.config.base_path,
-            &format!("/admin/moments?msg={}", encode_query("说说至少要包含文字或图片/视频")),
+            &format!(
+                "/admin/moments?msg={}",
+                encode_query("说说至少要包含文字或图片/视频")
+            ),
         ));
     }
     match moments::create_moment(&state.db, &content, &attachment_ids).await {
@@ -177,7 +191,10 @@ pub async fn update(
     if content.trim().is_empty() && attachment_ids.is_empty() {
         return Ok(super::redirect(
             &state.config.base_path,
-            &format!("/admin/moments?msg={}", encode_query("说说至少要包含文字或图片/视频")),
+            &format!(
+                "/admin/moments?msg={}",
+                encode_query("说说至少要包含文字或图片/视频")
+            ),
         ));
     }
     match moments::update_moment_with_attachments(&state.db, id, &content, &attachment_ids).await {

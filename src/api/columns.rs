@@ -5,15 +5,15 @@
 //! 由名称生成，创建后保留不改（避免前台 /columns/{slug} 链接失效）。文章的
 //! 加入/移出通过 `posts::update_post` 的 `column_id` 字段实现，不触碰其他字段。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::models::{PostStatus, PostType};
 use crate::services::{columns, posts};
-use crate::AppState;
+use axum::Json;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
@@ -65,7 +65,14 @@ pub async fn create(
         _ => columns::slug_for(name).await,
     };
     let sort_order = opt_i64(&body, "sort_order")?.unwrap_or(0);
-    let column = columns::create_column(&state.db, name.trim(), &slug, sort_order, description.trim()).await?;
+    let column = columns::create_column(
+        &state.db,
+        name.trim(),
+        &slug,
+        sort_order,
+        description.trim(),
+    )
+    .await?;
     Ok((StatusCode::CREATED, Json(json!({ "data": column }))))
 }
 
@@ -143,7 +150,10 @@ pub async fn list_posts(
             tag_slug: None,
             column_slug: Some(column.slug),
             month: None,
-            sort: Some(posts::PostSort { field: "updated_at", asc: false }),
+            sort: Some(posts::PostSort {
+                field: "updated_at",
+                asc: false,
+            }),
             page,
             page_size,
         },
@@ -169,25 +179,26 @@ pub async fn add_post(
         Some(v) => v,
         None => return Err(AppError::BadRequest("post_id 必须是整数".into())),
     };
-    if posts::get_post(&state.db, post_id)
-        .await?
-        .is_none()
-    {
+    if posts::get_post(&state.db, post_id).await?.is_none() {
         return Err(AppError::BadRequest(format!("文章不存在: {post_id}")));
     }
-    let post = posts::update_post(&state.db, post_id, posts::UpdatePost {
-        title: None,
-        content_md: None,
-        excerpt: None,
-        slug: None,
-        status: None,
-        post_type: None,
-        category_id: None,
-        column_id: Some(Some(id)),
-        tags: None,
-        published_at: None,
-        updated_at: None,
-    })
+    let post = posts::update_post(
+        &state.db,
+        post_id,
+        posts::UpdatePost {
+            title: None,
+            content_md: None,
+            excerpt: None,
+            slug: None,
+            status: None,
+            post_type: None,
+            category_id: None,
+            column_id: Some(Some(id)),
+            tags: None,
+            published_at: None,
+            updated_at: None,
+        },
+    )
     .await?;
     Ok(Json(json!({ "data": post })))
 }
@@ -203,19 +214,23 @@ pub async fn remove_post(
     columns::get_column_by_id(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound("专栏不存在".into()))?;
-    posts::update_post(&state.db, post_id, posts::UpdatePost {
-        title: None,
-        content_md: None,
-        excerpt: None,
-        slug: None,
-        status: None,
-        post_type: None,
-        category_id: None,
-        column_id: Some(None),
-        tags: None,
-        published_at: None,
-        updated_at: None,
-    })
+    posts::update_post(
+        &state.db,
+        post_id,
+        posts::UpdatePost {
+            title: None,
+            content_md: None,
+            excerpt: None,
+            slug: None,
+            status: None,
+            post_type: None,
+            category_id: None,
+            column_id: Some(None),
+            tags: None,
+            published_at: None,
+            updated_at: None,
+        },
+    )
     .await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -242,9 +257,10 @@ fn opt_str<'a>(body: &'a Value, key: &str) -> Option<&'a str> {
 fn opt_i64(body: &Value, key: &str) -> Result<Option<i64>, AppError> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(n)) => n.as_i64().map(Some).ok_or_else(|| {
-            AppError::BadRequest(format!("{key} 必须是整数"))
-        }),
+        Some(Value::Number(n)) => n
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| AppError::BadRequest(format!("{key} 必须是整数"))),
         Some(_) => Err(AppError::BadRequest(format!("{key} 必须是整数"))),
     }
 }

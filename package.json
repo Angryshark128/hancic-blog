@@ -1,0 +1,28 @@
+{
+  "name": "hancic-blog",
+  "version": "1.0.0",
+  "description": "> 一个简洁、自托管的博客与内容发布系统。单二进制、零外部依赖，Markdown 写作，开箱即用。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hancic128/hancic-blog.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hancic128/hancic-blog/issues"
+  },
+  "homepage": "https://github.com/hancic128/hancic-blog#readme",
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

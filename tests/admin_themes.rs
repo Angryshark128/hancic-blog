@@ -10,9 +10,9 @@
 //! 与样式（热生效，无须重启）。
 
 mod common;
-use common::{extract_csrf, login_admin, start_server_with_cfg, test_config};
 use axum::body::Body;
 use axum::http::Request;
+use common::{extract_csrf, login_admin, start_server_with_cfg, test_config};
 use hancic::db;
 use hancic::services::settings;
 use tower::ServiceExt;
@@ -31,7 +31,11 @@ async fn theme_admin_flow() {
     assert!(login_admin(&client, &addr).await);
 
     // 1. 列表：含 default（当前标记）与复制进来的 test-theme
-    let res = client.get(format!("{base}/admin/themes")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/themes"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200, "主题列表页应可访问");
     let html = res.text().await.unwrap();
     let csrf = extract_csrf(&html);
@@ -69,7 +73,11 @@ async fn theme_admin_flow() {
     );
 
     // 3. 预览渲染：用 test-theme 的 tera 与静态资源路径
-    let res = client.get(format!("{base}{location}")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}{location}"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200, "预览首页应可访问");
     let html = res.text().await.unwrap();
     assert!(
@@ -82,7 +90,10 @@ async fn theme_admin_flow() {
     );
     // 预览不落库：active_theme 仍为 default（若预览写库，此处即失败）
     assert_eq!(
-        settings::get(&pool, "active_theme").await.unwrap().as_deref(),
+        settings::get(&pool, "active_theme")
+            .await
+            .unwrap()
+            .as_deref(),
         Some("default"),
         "预览不应改动 active_theme 设置"
     );
@@ -113,7 +124,10 @@ async fn theme_admin_flow() {
         .to_string();
     assert!(location.contains("msg="), "应带结果提示参数: {location}");
     assert_eq!(
-        settings::get(&pool, "active_theme").await.unwrap().as_deref(),
+        settings::get(&pool, "active_theme")
+            .await
+            .unwrap()
+            .as_deref(),
         Some("test-theme"),
         "activate 应写 settings.active_theme"
     );

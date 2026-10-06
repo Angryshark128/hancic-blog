@@ -4,9 +4,9 @@
 //! `tokens::generate` 产出的明文经 `Authorization: Bearer` 放行并创建文章（201）。
 
 mod common;
-use common::test_app;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
+use common::test_app;
 use hancic::services::tokens;
 use tower::ServiceExt;
 

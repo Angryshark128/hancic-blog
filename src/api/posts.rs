@@ -9,15 +9,15 @@
 //! 响应统一 `{data: Post}`（POST 为 201），Post 序列化保留 `content_md` 原文与
 //! `excerpt`/`published_at`/`views`；错误统一 `{error:{code,message}}`。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::models::{PostStatus, PostType};
 use crate::services::{posts as service, taxonomy};
-use crate::AppState;
+use axum::Json;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
@@ -126,7 +126,11 @@ pub async fn update_timestamps(
         None => None,
         Some(Value::Null) => return Err(AppError::BadRequest("updated_at 不能为 null".into())),
         Some(Value::String(s)) => Some(parse_rfc3339(s, "updated_at")?),
-        Some(_) => return Err(AppError::BadRequest("updated_at 必须是 RFC3339 字符串".into())),
+        Some(_) => {
+            return Err(AppError::BadRequest(
+                "updated_at 必须是 RFC3339 字符串".into(),
+            ));
+        }
     };
     if published_at.is_none() && updated_at.is_none() {
         return Err(AppError::BadRequest(
@@ -195,9 +199,9 @@ async fn parse_update_post(
         None => None,
         Some(Value::Null) => Some(None),
         Some(Value::Number(n)) => {
-            let id = n.as_i64().ok_or_else(|| {
-                AppError::BadRequest("category_id 必须是整数".into())
-            })?;
+            let id = n
+                .as_i64()
+                .ok_or_else(|| AppError::BadRequest("category_id 必须是整数".into()))?;
             check_category(state, id).await?;
             Some(Some(id))
         }
@@ -211,7 +215,11 @@ async fn parse_update_post(
         None => None,
         Some(Value::Null) => return Err(AppError::BadRequest("updated_at 不能为 null".into())),
         Some(Value::String(s)) => Some(parse_rfc3339(s, "updated_at")?),
-        Some(_) => return Err(AppError::BadRequest("updated_at 必须是 RFC3339 字符串".into())),
+        Some(_) => {
+            return Err(AppError::BadRequest(
+                "updated_at 必须是 RFC3339 字符串".into(),
+            ));
+        }
     };
     Ok(service::UpdatePost {
         title,
@@ -268,9 +276,10 @@ fn opt_str<'a>(body: &'a Value, key: &str) -> Option<&'a str> {
 fn opt_i64(body: &Value, key: &str) -> Result<Option<i64>, AppError> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(n)) => n.as_i64().map(Some).ok_or_else(|| {
-            AppError::BadRequest(format!("{key} 必须是整数"))
-        }),
+        Some(Value::Number(n)) => n
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| AppError::BadRequest(format!("{key} 必须是整数"))),
         Some(_) => Err(AppError::BadRequest(format!("{key} 必须是整数"))),
     }
 }
@@ -295,10 +304,7 @@ fn opt_string_array(body: &Value, key: &str) -> Result<Option<Vec<String>>, AppE
 
 /// category_id 存在性校验：不存在 → 400（创建/更新共用）。
 async fn check_category(state: &AppState, id: i64) -> Result<(), AppError> {
-    if taxonomy::get_category_by_id(&state.db, id)
-        .await?
-        .is_some()
-    {
+    if taxonomy::get_category_by_id(&state.db, id).await?.is_some() {
         Ok(())
     } else {
         Err(AppError::BadRequest(format!("分类不存在: {id}")))
@@ -335,6 +341,8 @@ fn parse_optional_datetime(
         None => Ok(None),
         Some(Value::Null) => Ok(Some(None)),
         Some(Value::String(s)) => Ok(Some(Some(parse_rfc3339(s, key)?))),
-        Some(_) => Err(AppError::BadRequest(format!("{key} 必须是 RFC3339 字符串或 null"))),
+        Some(_) => Err(AppError::BadRequest(format!(
+            "{key} 必须是 RFC3339 字符串或 null"
+        ))),
     }
 }

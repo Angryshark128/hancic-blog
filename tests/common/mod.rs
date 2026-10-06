@@ -27,10 +27,7 @@ pub fn xdb_path() -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static XDB_SEQ: AtomicU64 = AtomicU64::new(0);
     let seq = XDB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "hancic-test-xdb-{}-{seq}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("hancic-test-xdb-{}-{seq}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     hancic::ipregion::ensure_xdb(&dir).unwrap();
     dir.join("ip2region.xdb")

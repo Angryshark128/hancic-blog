@@ -24,7 +24,11 @@ async fn taxonomy_admin_flow() {
     assert!(login_admin(&client, &addr).await);
 
     // 列表页可访问（顺带拿 CSRF），空列表有占位
-    let res = client.get(format!("{base}/admin/taxonomy")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/taxonomy"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200, "分类标签页应可访问");
     let html = res.text().await.unwrap();
     let csrf = extract_csrf(&html);
@@ -63,7 +67,11 @@ async fn taxonomy_admin_flow() {
     assert_eq!(tags[0].slug, "rust");
 
     // 列表页含新分类与标签
-    let res = client.get(format!("{base}/admin/taxonomy")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/taxonomy"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200);
     let html = res.text().await.unwrap();
     assert!(html.contains("技术 分享"), "列表应含新分类");
@@ -109,7 +117,10 @@ async fn taxonomy_admin_flow() {
 
     // 更新分类：改名 + 改 slug + 排序
     let res = client
-        .post(format!("{base}/admin/taxonomy/categories/{}/update", cats[0].id))
+        .post(format!(
+            "{base}/admin/taxonomy/categories/{}/update",
+            cats[0].id
+        ))
         .form(&[
             ("name", "编程"),
             ("slug", "code"),
@@ -144,11 +155,20 @@ async fn taxonomy_admin_flow() {
     .await
     .unwrap();
     assert_eq!(post.category_id, Some(cat.id));
-    assert_eq!(posts::list_tags_of_post(&pool, post.id).await.unwrap().len(), 1);
+    assert_eq!(
+        posts::list_tags_of_post(&pool, post.id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
 
     // 删除分类 → 文章 category_id 置空（ON DELETE SET NULL），文章不丢
     let res = client
-        .post(format!("{base}/admin/taxonomy/categories/{}/delete", cat.id))
+        .post(format!(
+            "{base}/admin/taxonomy/categories/{}/delete",
+            cat.id
+        ))
         .form(&[("csrf", csrf.as_str())])
         .send()
         .await
@@ -168,7 +188,10 @@ async fn taxonomy_admin_flow() {
     assert_eq!(res.status(), 302, "删除标签应 302 回列表");
     assert_eq!(taxonomy::list_tags(&pool).await.unwrap().len(), 0);
     assert_eq!(
-        posts::list_tags_of_post(&pool, post.id).await.unwrap().len(),
+        posts::list_tags_of_post(&pool, post.id)
+            .await
+            .unwrap()
+            .len(),
         0,
         "删标签后 post_tags 关联应清空"
     );

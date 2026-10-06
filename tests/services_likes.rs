@@ -3,8 +3,8 @@ mod common;
 use common::test_config;
 use hancic::db;
 use hancic::models::{LikeContentType, PostStatus, PostType};
-use hancic::services::{likes, moments, posts};
 use hancic::services::posts::NewPost;
+use hancic::services::{likes, moments, posts};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 async fn setup_pool(tag: &str) -> sqlx::SqlitePool {
@@ -37,7 +37,9 @@ async fn setup_post() -> (sqlx::SqlitePool, i64) {
 
 async fn setup_moment() -> (sqlx::SqlitePool, i64) {
     let pool = setup_pool("likes-moment").await;
-    let moment = moments::create_moment(&pool, "点赞说说", &[]).await.unwrap();
+    let moment = moments::create_moment(&pool, "点赞说说", &[])
+        .await
+        .unwrap();
     (pool, moment.id)
 }
 
@@ -151,7 +153,10 @@ async fn list_posts_can_sort_by_like_count_desc() {
             tag_slug: None,
             column_slug: None,
             month: None,
-            sort: Some(posts::PostSort { field: "like_count", asc: false }),
+            sort: Some(posts::PostSort {
+                field: "like_count",
+                asc: false,
+            }),
             page: 1,
             page_size: 10,
         },
@@ -250,7 +255,10 @@ async fn duplicate_like_row_recovery_keeps_existing_visitor_toggle_semantics() {
     )
     .await;
 
-    assert!(status.is_ok(), "recovery path must not surface internal error");
+    assert!(
+        status.is_ok(),
+        "recovery path must not surface internal error"
+    );
     let status = status.unwrap();
     assert!(!status.liked);
     assert_eq!(status.like_count, 0);
@@ -271,6 +279,9 @@ async fn duplicate_like_row_recovery_keeps_existing_visitor_toggle_semantics() {
 fn hash_client_hint_returns_expected_sha256_hex() {
     let hashed = likes::hash_client_hint("127.0.0.1");
     assert_eq!(hashed.len(), 64);
-    assert_eq!(hashed, "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0");
+    assert_eq!(
+        hashed,
+        "12ca17b49af2289436f303e0166030a21e525d266e209267433801a8fd4071a0"
+    );
     assert_ne!(hashed, likes::hash_client_hint("127.0.0.2"));
 }

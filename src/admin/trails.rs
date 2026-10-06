@@ -4,7 +4,7 @@
 //! ≥2 个轨迹点，失败带 `?msg=` 回列表回显；删除同时清理磁盘 GPX 与完整坐标 JSON。
 
 use crate::services::trails;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, Multipart, OriginalUri, Path, State};
 use axum::response::Response;
 use serde_json::json;
@@ -16,20 +16,21 @@ pub const GPX_MAX_BYTES: usize = 20 * 1024 * 1024;
 
 // ---------- 列表 ----------
 
-pub async fn list(
-    State(state): State<AppState>,
-    session: Session,
-    uri: OriginalUri,
-) -> Response {
+pub async fn list(State(state): State<AppState>, session: Session, uri: OriginalUri) -> Response {
     if session::require_admin(&session).await.is_err() {
         return super::redirect(&state.config.base_path, "/admin/login");
     }
     let sort_key = sort_param(uri.query().unwrap_or("")).unwrap_or("recent");
     let sort = trails::TrailSort::parse(Some(sort_key));
-    let items = trails::list_trails(&state.db, sort).await.unwrap_or_default();
+    let items = trails::list_trails(&state.db, sort)
+        .await
+        .unwrap_or_default();
     let (mut ctx, csrf) = super::base_ctx(&state, &session, uri.path()).await;
     ctx.insert("csrf", &csrf);
-    ctx.insert("trails", &json!(items.iter().map(trail_admin_value).collect::<Vec<_>>()));
+    ctx.insert(
+        "trails",
+        &json!(items.iter().map(trail_admin_value).collect::<Vec<_>>()),
+    );
     ctx.insert("sort", &sort_key);
     ctx.insert(
         "error_msg",
@@ -157,7 +158,11 @@ pub async fn upload(
     } else if errors.is_empty() {
         format!("成功导入 {ok} 条轨迹")
     } else {
-        format!("成功导入 {ok} 条；失败 {} 条：{}", errors.len(), errors.join("；"))
+        format!(
+            "成功导入 {ok} 条；失败 {} 条：{}",
+            errors.len(),
+            errors.join("；")
+        )
     };
     super::redirect(base, &format!("/admin/trails?msg={}", urlencode(&msg)))
 }
@@ -244,7 +249,9 @@ fn urlencode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }

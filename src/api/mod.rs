@@ -22,7 +22,7 @@ pub mod trails;
 pub mod uploads;
 
 use crate::error::AppError;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::rejection::JsonRejection;
 use axum::http::HeaderMap;
 use axum::routing::{delete, get, patch, post};
@@ -37,17 +37,28 @@ pub fn router() -> Router<AppState> {
         .route("/likes/toggle", post(likes::toggle))
         .route("/uploads", post(uploads::upload))
         .route("/posts", get(posts::list).post(posts::create))
-        .route("/posts/{id}", get(posts::get).patch(posts::update).delete(posts::delete))
+        .route(
+            "/posts/{id}",
+            get(posts::get).patch(posts::update).delete(posts::delete),
+        )
         .route("/posts/{id}/timestamps", post(posts::update_timestamps))
         .route("/moments", get(moments::list).post(moments::create))
-        .route("/moments/{id}", get(moments::get).patch(moments::update).delete(moments::delete))
+        .route(
+            "/moments/{id}",
+            get(moments::get)
+                .patch(moments::update)
+                .delete(moments::delete),
+        )
         .route("/attachments", get(attachments::list))
         .route("/settings", get(settings::get))
         .route("/themes", get(themes::list))
         .route("/themes/{name}/activate", post(themes::activate))
         .route("/trails", get(trails::list))
         .route("/trails/{id}", get(trails::get))
-        .route("/categories", get(categories::list).post(categories::create))
+        .route(
+            "/categories",
+            get(categories::list).post(categories::create),
+        )
         .route(
             "/categories/{id}",
             patch(categories::update).delete(categories::delete),

@@ -8,7 +8,7 @@
 //! 再过 CSRF。上传大小上限与备份恢复一致（500MB + 路由层 multipart 余量）。
 
 use crate::services::migrate;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Multipart, OriginalUri, Query, State};
 use axum::response::Response;
 use serde_json::json;
@@ -26,7 +26,7 @@ pub async fn page(
     uri: OriginalUri,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
     ctx.insert(
@@ -45,7 +45,7 @@ pub async fn run(
     mut multipart: Multipart,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let mut csrf: Option<String> = None;
     let mut download_images = false;
@@ -60,11 +60,7 @@ pub async fn run(
                 csrf = field.text().await.ok();
             }
             Some("download_images") => {
-                download_images = field
-                    .text()
-                    .await
-                    .map(|t| t == "on")
-                    .unwrap_or(false);
+                download_images = field.text().await.map(|t| t == "on").unwrap_or(false);
             }
             Some("archive") => {
                 // 分块读入并累计大小，避免整包直接撑爆内存后再校验
@@ -74,12 +70,20 @@ pub async fn run(
                         Ok(Some(chunk)) => {
                             total += chunk.len() as u64;
                             if total > MIGRATE_MAX_BYTES {
-                                return redirect_msg(&state.config.base_path, "迁移包超过 500MB 上限");
+                                return redirect_msg(
+                                    &state.config.base_path,
+                                    "迁移包超过 500MB 上限",
+                                );
                             }
                             bytes.extend_from_slice(&chunk);
                         }
                         Ok(None) => break,
-                        Err(_) => return redirect_msg(&state.config.base_path, "读取上传失败：文件过大或格式错误"),
+                        Err(_) => {
+                            return redirect_msg(
+                                &state.config.base_path,
+                                "读取上传失败：文件过大或格式错误",
+                            );
+                        }
                     }
                 }
                 zip_bytes = Some(bytes);
@@ -94,22 +98,28 @@ pub async fn run(
         return redirect_msg(&state.config.base_path, "安全校验失败，请刷新页面后重试");
     }
     let Some(bytes) = zip_bytes else {
-        return redirect_msg(&state.config.base_path, "未收到 zip 文件，请选择 Halo 导出包");
+        return redirect_msg(
+            &state.config.base_path,
+            "未收到 zip 文件，请选择 Halo 导出包",
+        );
     };
     if bytes.is_empty() {
         return redirect_msg(&state.config.base_path, "迁移包为空");
     }
 
     // 落临时文件交给服务层（zip 需 seek 定位中央目录）
-    let zip_path = std::env::temp_dir().join(format!(
-        "hancic-migrate-{}.zip",
-        uuid::Uuid::new_v4()
-    ));
+    let zip_path =
+        std::env::temp_dir().join(format!("hancic-migrate-{}.zip", uuid::Uuid::new_v4()));
     if std::fs::write(&zip_path, &bytes).is_err() {
         return redirect_msg(&state.config.base_path, "写入临时文件失败，请重试");
     }
-    match migrate::import_halo_zip(&state.db, &state.config.data_dir, &zip_path, download_images)
-        .await
+    match migrate::import_halo_zip(
+        &state.db,
+        &state.config.data_dir,
+        &zip_path,
+        download_images,
+    )
+    .await
     {
         Ok(report) => {
             tracing::info!(

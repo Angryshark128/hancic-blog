@@ -3,14 +3,14 @@
 //! 轨迹数据由后台 GPX 上传维护；列表按最近轨迹优先返回（字段含里程/爬升/
 //! 时长等展示统计），详情额外可选完整坐标（`?with_coords=1`，可用于前端画线）。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::models::Trail;
 use crate::services::trails;
-use crate::AppState;
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::HeaderMap;
-use axum::Json;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
@@ -70,9 +70,7 @@ pub async fn get(
         let coords = trails::load_full_coords(&dir, id)
             .unwrap_or_default()
             .into_iter()
-            .map(|(lat, lon, spd)| {
-                json!([lat, lon, serde_json::Value::from(spd)])
-            })
+            .map(|(lat, lon, spd)| json!([lat, lon, serde_json::Value::from(spd)]))
             .collect::<Vec<_>>();
         data["coords"] = json!(coords);
     }

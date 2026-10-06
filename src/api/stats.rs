@@ -3,13 +3,13 @@
 //! `from`/`to` 为可选 `YYYY-MM-DD`（站点时区日期，当日边界）阅读明细范围；
 //! 缺省不设限；趋势按站点时区自然日分组。响应 `{data: StatsSummary}`。
 
+use crate::AppState;
 use crate::api;
 use crate::error::AppError;
 use crate::services::stats;
-use crate::AppState;
+use axum::Json;
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
-use axum::Json;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;

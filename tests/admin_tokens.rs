@@ -80,7 +80,10 @@ async fn token_generate_display_revoke_flow() {
 
     // verify(明文) == true；错误明文 == false
     assert!(tokens::verify(&pool, plain).await, "明文应通过校验");
-    assert!(!tokens::verify(&pool, "hc_wrong-token").await, "错误明文应校验失败");
+    assert!(
+        !tokens::verify(&pool, "hc_wrong-token").await,
+        "错误明文应校验失败"
+    );
 
     // created 页二次访问不再展示明文（仅显示一次）
     let res = client
@@ -111,7 +114,10 @@ async fn token_generate_display_revoke_flow() {
         .await
         .unwrap();
     assert_eq!(res.status(), 302, "吊销应 302 回列表");
-    assert!(!tokens::verify(&pool, plain).await, "吊销后 verify 应 false");
+    assert!(
+        !tokens::verify(&pool, plain).await,
+        "吊销后 verify 应 false"
+    );
 
     // 列表页显示已吊销
     let res = client

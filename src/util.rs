@@ -60,12 +60,18 @@ mod tests {
             html_escape(r#"<script>alert("x") & 'y'</script>"#),
             "&lt;script&gt;alert(&quot;x&quot;) &amp; &#x27;y&#x27;&lt;/script&gt;"
         );
-        assert_eq!(html_escape("普通文本 <mark>高亮</mark>"), "普通文本 &lt;mark&gt;高亮&lt;/mark&gt;");
+        assert_eq!(
+            html_escape("普通文本 <mark>高亮</mark>"),
+            "普通文本 &lt;mark&gt;高亮&lt;/mark&gt;"
+        );
     }
 
     #[test]
     fn decodes_percent_utf8() {
-        assert_eq!(percent_decode("%E8%B4%A2%E5%AF%8C%E5%88%86%E5%B1%82-Kdpk.png"), "财富分层-Kdpk.png");
+        assert_eq!(
+            percent_decode("%E8%B4%A2%E5%AF%8C%E5%88%86%E5%B1%82-Kdpk.png"),
+            "财富分层-Kdpk.png"
+        );
         // 普通中文原样保留
         assert_eq!(percent_decode("身体得分.jpeg"), "身体得分.jpeg");
         // 非法序列原样保留

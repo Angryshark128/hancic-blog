@@ -96,7 +96,12 @@ pub async fn save_bytes(
     let dir = uploads_dir.join(sub);
     std::fs::create_dir_all(&dir).map_err(internal)?;
     let stored = if kind == AttachmentKind::Image && mime != "image/gif" && cfg.image_compress {
-        compress_image(&dir.join(&uuid_name), data, cfg.image_max_edge, cfg.image_quality)?
+        compress_image(
+            &dir.join(&uuid_name),
+            data,
+            cfg.image_max_edge,
+            cfg.image_quality,
+        )?
     } else {
         data.to_vec()
     };
@@ -150,9 +155,7 @@ pub async fn save_upload_multipart(
         }
     }
     if saved.is_empty() {
-        return Err(first_err.unwrap_or_else(|| {
-            AppError::BadRequest("没有成功上传的文件".into())
-        }));
+        return Err(first_err.unwrap_or_else(|| AppError::BadRequest("没有成功上传的文件".into())));
     }
     Ok(saved)
 }
@@ -269,11 +272,7 @@ pub async fn get_attachment(db: &Db, id: i64) -> Result<Option<Attachment>, AppE
 }
 
 /// 删除附件：删磁盘文件 + 删 DB 行（不存在视为成功）。
-pub async fn delete_attachment(
-    db: &Db,
-    uploads_dir: &Path,
-    id: i64,
-) -> Result<(), AppError> {
+pub async fn delete_attachment(db: &Db, uploads_dir: &Path, id: i64) -> Result<(), AppError> {
     let Some(att) = get_attachment(db, id).await? else {
         return Ok(());
     };

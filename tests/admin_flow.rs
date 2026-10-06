@@ -11,7 +11,9 @@ use hancic::auth;
 /// 形如 `2026-09-26 20:07:03 部署`。
 fn extract_admin_deploy_time(html: &str) -> String {
     let marker = "admin-deploy-time";
-    let at = html.find(marker).expect("侧栏底部应含 admin-deploy-time 元素");
+    let at = html
+        .find(marker)
+        .expect("侧栏底部应含 admin-deploy-time 元素");
     let rest = &html[at + marker.len()..];
     let start = rest.find('>').expect("admin-deploy-time 应有起始标签") + 1;
     let end = rest[start..]
@@ -24,7 +26,9 @@ fn extract_admin_deploy_time(html: &str) -> String {
 async fn dashboard_requires_login_and_shows_counts() {
     let cfg = test_config("admin-dash");
     let pool = hancic::db::init(&cfg.data_dir).await.unwrap();
-    auth::set_password(&pool, common::TEST_PASSWORD).await.unwrap();
+    auth::set_password(&pool, common::TEST_PASSWORD)
+        .await
+        .unwrap();
     let (addr, client) = start_server_with_cfg(cfg).await;
     let base = format!("http://{addr}");
 
@@ -53,16 +57,24 @@ async fn dashboard_requires_login_and_shows_counts() {
     // 值形如「2026-09-26 20:07:03 部署」——含时分秒（曾只显示到日，被截断）
     let deploy = extract_admin_deploy_time(&html);
     let naive = chrono::NaiveDateTime::parse_from_str(&deploy, "%Y-%m-%d %H:%M:%S 部署")
-        .unwrap_or_else(|e| panic!("部署时间应形如 YYYY-MM-DD HH:MM:SS 部署（实际 {deploy:?}）: {e}"));
+        .unwrap_or_else(|e| {
+            panic!("部署时间应形如 YYYY-MM-DD HH:MM:SS 部署（实际 {deploy:?}）: {e}")
+        });
     let tz = chrono_tz::Asia::Shanghai;
     let now = chrono::Utc::now().with_timezone(&tz).naive_local();
     let drift_mins = (now - naive).num_minutes().abs();
-    assert!(drift_mins <= 60 * 24, "部署时间应贴近当前时刻（相差 {drift_mins} 分钟）: {deploy}");
+    assert!(
+        drift_mins <= 60 * 24,
+        "部署时间应贴近当前时刻（相差 {drift_mins} 分钟）: {deploy}"
+    );
     // 版本徽章：CI 用 APP_VERSION build-arg 注入 release tag（如 v1.1.6），
     // 本地未注入时回退到 CARGO_PKG_VERSION（v0.1.0）—— 都符合「v + 三段数字」格式。
     // 取 admin-version-tag 元素后续内容做宽松校验（无 regex 依赖）
     let ver_marker = "admin-version-tag";
-    assert!(html.contains(ver_marker), "侧栏底部应含 admin-version-tag 元素");
+    assert!(
+        html.contains(ver_marker),
+        "侧栏底部应含 admin-version-tag 元素"
+    );
     let at = html.find(ver_marker).expect("ver_marker 已在上一步定位");
     let after = &html[at + ver_marker.len()..];
     // 找到版本字符串的起止：'>' 后到 '<' 前
@@ -78,10 +90,7 @@ async fn dashboard_requires_login_and_shows_counts() {
             && ver_text.matches('.').count() >= 2,
         "版本徽章应为「vX.Y.Z」格式，实际 {ver_text:?}"
     );
-    assert!(
-        html.contains("admin-nav-item active"),
-        "仪表盘导航项应高亮"
-    );
+    assert!(html.contains("admin-nav-item active"), "仪表盘导航项应高亮");
     assert!(html.contains("阅读 / 点赞趋势"), "仪表盘应含趋势图区块");
     assert!(html.contains("window.chartData"), "仪表盘应输出趋势数据");
 
@@ -112,7 +121,9 @@ async fn dashboard_requires_login_and_shows_counts() {
 async fn admin_brand_deploy_time_follows_site_timezone() {
     let cfg = test_config("admin-brand-tz");
     let pool = hancic::db::init(&cfg.data_dir).await.unwrap();
-    auth::set_password(&pool, common::TEST_PASSWORD).await.unwrap();
+    auth::set_password(&pool, common::TEST_PASSWORD)
+        .await
+        .unwrap();
     // 系统设置里把时区改成 UTC：品牌区小字必须跟着变（而不是固定 UTC+8）
     sqlx::query("INSERT OR REPLACE INTO settings (key, value) VALUES ('timezone', 'UTC')")
         .execute(&pool)
@@ -133,7 +144,9 @@ async fn admin_brand_deploy_time_follows_site_timezone() {
     // 部署时间已移至侧栏底部（admin-meta），格式「YYYY-MM-DD HH:MM:SS 部署」
     let deploy = extract_admin_deploy_time(&html);
     let naive = chrono::NaiveDateTime::parse_from_str(&deploy, "%Y-%m-%d %H:%M:%S 部署")
-        .unwrap_or_else(|e| panic!("部署时间应形如 YYYY-MM-DD HH:MM:SS 部署（实际 {deploy:?}）: {e}"));
+        .unwrap_or_else(|e| {
+            panic!("部署时间应形如 YYYY-MM-DD HH:MM:SS 部署（实际 {deploy:?}）: {e}")
+        });
     // 时区改 UTC 后必须跟着变：与 UTC 当前时刻相差不超过 1 天（容跨午夜边界）
     let now_utc = chrono::Utc::now().naive_utc();
     let drift_mins = (now_utc - naive).num_minutes().abs();
@@ -147,7 +160,9 @@ async fn admin_brand_deploy_time_follows_site_timezone() {
 async fn admin_dashboard_shows_total_like_count() {
     let cfg = test_config("admin-dash-like-count");
     let pool = hancic::db::init(&cfg.data_dir).await.unwrap();
-    auth::set_password(&pool, common::TEST_PASSWORD).await.unwrap();
+    auth::set_password(&pool, common::TEST_PASSWORD)
+        .await
+        .unwrap();
     let (addr, client) = start_server_with_cfg(cfg).await;
     let base = format!("http://{addr}");
     assert!(login_admin(&client, &addr).await);
@@ -201,5 +216,8 @@ async fn admin_dashboard_shows_total_like_count() {
         .await
         .unwrap();
     assert!(html.contains("总点赞"), "仪表盘应展示累计点赞卡片: {html}");
-    assert!(html.contains(r#"<div class="stat-num">3</div>"#), "仪表盘应展示累计点赞数 3: {html}");
+    assert!(
+        html.contains(r#"<div class="stat-num">3</div>"#),
+        "仪表盘应展示累计点赞数 3: {html}"
+    );
 }

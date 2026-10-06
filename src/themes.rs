@@ -22,7 +22,10 @@ pub struct ThemeMeta {
 /// 扫描主题目录，读取每个子目录的 theme.toml；损坏的目录跳过并 warn。
 pub fn discover(themes_dir: &Path) -> Result<Vec<ThemeMeta>, String> {
     let mut out = vec![];
-    for e in std::fs::read_dir(themes_dir).map_err(|e| e.to_string())?.flatten() {
+    for e in std::fs::read_dir(themes_dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         if !e.path().is_dir() {
             continue;
         }
@@ -112,11 +115,7 @@ impl ThemeTeraCache {
     ///
     /// 流程：① 锁外算当前 mtime；② 读锁快路径（mtime 一致即返回 Arc）；
     /// ③ 锁外构建新 Tera；④ 写锁双检并插入。
-    pub async fn get_or_build(
-        &self,
-        themes_dir: &Path,
-        name: &str,
-    ) -> Result<Arc<Tera>, String> {
+    pub async fn get_or_build(&self, themes_dir: &Path, name: &str) -> Result<Arc<Tera>, String> {
         let tpl_dir = themes_dir.join(name).join("templates");
         let current_mtime = templates_max_mtime(&tpl_dir);
 
@@ -282,8 +281,7 @@ pub fn install(themes_dir: &Path, zip_bytes: &[u8]) -> Result<ThemeMeta, String>
 
 /// 读取临时解压目录内 theme.toml 的 `name` 字段（解压后目录名非主题名时用）。
 fn parse_meta_name(dir: &Path) -> Result<Option<String>, String> {
-    let content =
-        std::fs::read_to_string(dir.join("theme.toml")).map_err(|e| e.to_string())?;
+    let content = std::fs::read_to_string(dir.join("theme.toml")).map_err(|e| e.to_string())?;
     #[derive(serde::Deserialize)]
     struct MetaName {
         name: Option<String>,
@@ -333,7 +331,5 @@ fn date_filter(value: &str, kwargs: Kwargs, _state: &State) -> TeraResult<Value>
         "date" => "%Y-%m-%d",
         _ => "%Y-%m-%d %H:%M",
     };
-    Ok(Value::from(
-        dt.with_timezone(&tz).format(fmt).to_string(),
-    ))
+    Ok(Value::from(dt.with_timezone(&tz).format(fmt).to_string()))
 }

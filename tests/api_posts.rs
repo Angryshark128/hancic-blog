@@ -6,10 +6,10 @@
 //! 清空）、DELETE 204/404；说说创建删除；统计汇总；health 开放。
 
 mod common;
-use common::test_app;
+use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
-use axum::Router;
+use common::test_app;
 use hancic::db::Db;
 use hancic::services::tokens;
 use serde_json::{Value, json};
@@ -106,11 +106,17 @@ async fn api_crud_walkthrough() {
     assert_eq!(status, StatusCode::CREATED, "创建失败: {body}");
     let post_id = body["data"]["id"].as_i64().expect("文章应返回 id");
     assert_eq!(body["data"]["title"], "REST API 测试");
-    assert_eq!(body["data"]["content_md"], "# 你好\n\nmarkdown **原文** 应保留");
+    assert_eq!(
+        body["data"]["content_md"],
+        "# 你好\n\nmarkdown **原文** 应保留"
+    );
     assert_eq!(body["data"]["status"], "published");
     assert_eq!(body["data"]["slug"], "rest-api-test");
     assert_eq!(body["data"]["category_id"], json!(cat_id));
-    assert!(body["data"]["published_at"].is_string(), "发布文章应有 published_at");
+    assert!(
+        body["data"]["published_at"].is_string(),
+        "发布文章应有 published_at"
+    );
     assert!(body["data"]["views"].is_number());
 
     // 6. 校验 400：空标题 / 非法 status / 分类不存在 / 缺 content_md
@@ -185,7 +191,10 @@ async fn api_crud_walkthrough() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["data"]["content_md"], "# 你好\n\nmarkdown **原文** 应保留");
+    assert_eq!(
+        body["data"]["content_md"],
+        "# 你好\n\nmarkdown **原文** 应保留"
+    );
     let (status, body) = send(&app, Method::GET, "/api/posts/999999", Some(token), None).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "不存在应 404: {body}");
     assert_eq!(body["error"]["code"], 404);
@@ -295,14 +304,7 @@ async fn api_crud_walkthrough() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // 13. 统计汇总
-    let (status, body) = send(
-        &app,
-        Method::GET,
-        "/api/stats/summary",
-        Some(token),
-        None,
-    )
-    .await;
+    let (status, body) = send(&app, Method::GET, "/api/stats/summary", Some(token), None).await;
     assert_eq!(status, StatusCode::OK, "stats 失败: {body}");
     assert_eq!(body["data"]["total_posts"], 0);
     assert_eq!(body["data"]["total_moments"], 0);
@@ -426,11 +428,23 @@ async fn patch_post_with_timestamps() {
     .await;
     assert_eq!(status, StatusCode::OK);
     let pub_at = body["data"]["published_at"].as_str().unwrap();
-    assert!(pub_at.starts_with("2026-09-15T01:30:00"), "published_at 应以用户时间开头,实际 {pub_at}");
-    assert!(pub_at.ends_with('Z'), "published_at 应以 Z 结尾,实际 {pub_at}");
+    assert!(
+        pub_at.starts_with("2026-09-15T01:30:00"),
+        "published_at 应以用户时间开头,实际 {pub_at}"
+    );
+    assert!(
+        pub_at.ends_with('Z'),
+        "published_at 应以 Z 结尾,实际 {pub_at}"
+    );
     let upd_at = body["data"]["updated_at"].as_str().unwrap();
-    assert!(upd_at.starts_with("2026-09-15T01:30:00"), "updated_at 应跳过自动刷,等于用户值,实际 {upd_at}");
-    assert!(upd_at.ends_with('Z'), "updated_at 应以 Z 结尾,实际 {upd_at}");
+    assert!(
+        upd_at.starts_with("2026-09-15T01:30:00"),
+        "updated_at 应跳过自动刷,等于用户值,实际 {upd_at}"
+    );
+    assert!(
+        upd_at.ends_with('Z'),
+        "updated_at 应以 Z 结尾,实际 {upd_at}"
+    );
 
     // 非法 RFC3339 → 400
     let (status, body) = send(
@@ -476,9 +490,15 @@ async fn post_timestamps_endpoint() {
     .await;
     assert_eq!(status, StatusCode::OK, "设置时间戳失败: {body}");
     let pub_at = body["data"]["published_at"].as_str().unwrap();
-    assert!(pub_at.starts_with("2026-09-14T23:00:00"), "published_at 应为用户值,实际 {pub_at}");
+    assert!(
+        pub_at.starts_with("2026-09-14T23:00:00"),
+        "published_at 应为用户值,实际 {pub_at}"
+    );
     let upd_at = body["data"]["updated_at"].as_str().unwrap();
-    assert!(upd_at.starts_with("2026-09-15T01:30:00"), "updated_at 应为用户值,实际 {upd_at}");
+    assert!(
+        upd_at.starts_with("2026-09-15T01:30:00"),
+        "updated_at 应为用户值,实际 {upd_at}"
+    );
     assert_eq!(body["data"]["content_md"], "不变", "正文不应被时间戳端点动");
 
     // 2) 清空 published_at (null)
@@ -491,7 +511,10 @@ async fn post_timestamps_endpoint() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body["data"]["published_at"].is_null(), "null 应清空 published_at");
+    assert!(
+        body["data"]["published_at"].is_null(),
+        "null 应清空 published_at"
+    );
 
     // 3) 空 body → 400
     let (status, _body) = send(
@@ -523,7 +546,9 @@ async fn post_timestamps_endpoint() {
                 .method(Method::POST)
                 .uri(format!("/api/posts/{id}/timestamps"))
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(json!({"updated_at": "2026-09-15T01:30:00Z"}).to_string()))
+                .body(Body::from(
+                    json!({"updated_at": "2026-09-15T01:30:00Z"}).to_string(),
+                ))
                 .unwrap(),
         )
         .await

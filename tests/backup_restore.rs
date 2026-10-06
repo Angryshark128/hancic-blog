@@ -1,8 +1,8 @@
 mod common;
 use common::{extract_csrf, login_admin, start_server_with_cfg, test_config};
 use hancic::db;
-use hancic::services::{backup, moments, posts, tokens};
 use hancic::models::PostStatus;
+use hancic::services::{backup, moments, posts, tokens};
 
 /// 全量备份 → 破坏数据 → 恢复：导出 zip 应包含数据一致性快照，
 /// restore 后重新连库能读到备份前的数据。
@@ -10,12 +10,25 @@ use hancic::models::PostStatus;
 async fn export_then_restore_roundtrip() {
     let cfg = test_config("backup");
     let pool = db::init(&cfg.data_dir).await.unwrap();
-    posts::create_post(&pool, posts::NewPost {
-        title: "备份文章".into(), content_md: "内容".into(), excerpt: None, slug: None,
-        status: PostStatus::Published, post_type: hancic::models::PostType::Post,
-        category_id: None, column_id: None, tags: vec!["backup".into()],
-    }).await.unwrap();
-    moments::create_moment(&pool, "备份说说", &[]).await.unwrap();
+    posts::create_post(
+        &pool,
+        posts::NewPost {
+            title: "备份文章".into(),
+            content_md: "内容".into(),
+            excerpt: None,
+            slug: None,
+            status: PostStatus::Published,
+            post_type: hancic::models::PostType::Post,
+            category_id: None,
+            column_id: None,
+            tags: vec!["backup".into()],
+        },
+    )
+    .await
+    .unwrap();
+    moments::create_moment(&pool, "备份说说", &[])
+        .await
+        .unwrap();
 
     let zip_path = cfg.data_dir.join("backup.zip");
     backup::export_all(&cfg.data_dir, &zip_path).await.unwrap();
@@ -26,7 +39,13 @@ async fn export_then_restore_roundtrip() {
     backup::restore(&cfg.data_dir, &zip_path).await.unwrap();
     let pool2 = db::init(&cfg.data_dir).await.unwrap();
     assert!(posts::get_post(&pool2, 1).await.unwrap().is_some());
-    assert_eq!(moments::list_moments(&pool2, None, false, None, 1, 10).await.unwrap().1, 1);
+    assert_eq!(
+        moments::list_moments(&pool2, None, false, None, 1, 10)
+            .await
+            .unwrap()
+            .1,
+        1
+    );
 }
 
 /// 备份页 + 导出下载（CSRF）+ API 备份（Bearer）鉴权链路。
@@ -110,11 +129,7 @@ async fn admin_page_export_and_api_backup() {
     );
     // 未鉴权（无 session cookie / 无 Bearer）应 401
     let anon = reqwest::Client::new();
-    let res = anon
-        .get(format!("{base}/api/backup"))
-        .send()
-        .await
-        .unwrap();
+    let res = anon.get(format!("{base}/api/backup")).send().await.unwrap();
     assert_eq!(res.status(), 401, "未鉴权应 401");
 }
 
@@ -126,11 +141,22 @@ async fn restore_rejects_invalid_zip() {
     hancic::auth::set_password(&pool, common::TEST_PASSWORD)
         .await
         .unwrap();
-    posts::create_post(&pool, posts::NewPost {
-        title: "保留文章".into(), content_md: "x".into(), excerpt: None, slug: None,
-        status: PostStatus::Published, post_type: hancic::models::PostType::Post,
-        category_id: None, column_id: None, tags: vec![],
-    }).await.unwrap();
+    posts::create_post(
+        &pool,
+        posts::NewPost {
+            title: "保留文章".into(),
+            content_md: "x".into(),
+            excerpt: None,
+            slug: None,
+            status: PostStatus::Published,
+            post_type: hancic::models::PostType::Post,
+            category_id: None,
+            column_id: None,
+            tags: vec![],
+        },
+    )
+    .await
+    .unwrap();
     let (addr, client) = start_server_with_cfg(cfg).await;
     let base = format!("http://{addr}");
     assert!(login_admin(&client, &addr).await);
@@ -152,15 +178,13 @@ async fn restore_rejects_invalid_zip() {
         std::io::Write::write_all(&mut writer, b"hello").unwrap();
         writer.finish().unwrap();
     }
-    let form = reqwest::multipart::Form::new()
-        .text("csrf", csrf)
-        .part(
-            "backup",
-            reqwest::multipart::Part::bytes(buf.into_inner())
-                .file_name("bad.zip")
-                .mime_str("application/zip")
-                .unwrap(),
-        );
+    let form = reqwest::multipart::Form::new().text("csrf", csrf).part(
+        "backup",
+        reqwest::multipart::Part::bytes(buf.into_inner())
+            .file_name("bad.zip")
+            .mime_str("application/zip")
+            .unwrap(),
+    );
     let res = client
         .post(format!("{base}/admin/backup/restore"))
         .multipart(form)
@@ -178,7 +202,10 @@ async fn restore_rejects_invalid_zip() {
     assert!(location.contains("msg="), "应带错误提示: {location}");
 
     // 数据未被破坏
-    assert!(posts::get_post(&pool, 1).await.unwrap().is_some(), "恢复失败不应影响现有数据");
+    assert!(
+        posts::get_post(&pool, 1).await.unwrap().is_some(),
+        "恢复失败不应影响现有数据"
+    );
 }
 
 /// I5：恢复包内 hancic.db 内容损坏（合法 zip 骨架）→ 恢复后 `PRAGMA
@@ -187,11 +214,22 @@ async fn restore_rejects_invalid_zip() {
 async fn restore_rejects_corrupt_db() {
     let cfg = test_config("backup-corrupt");
     let pool = db::init(&cfg.data_dir).await.unwrap();
-    posts::create_post(&pool, posts::NewPost {
-        title: "保留文章".into(), content_md: "x".into(), excerpt: None, slug: None,
-        status: PostStatus::Published, post_type: hancic::models::PostType::Post,
-        category_id: None, column_id: None, tags: vec![],
-    }).await.unwrap();
+    posts::create_post(
+        &pool,
+        posts::NewPost {
+            title: "保留文章".into(),
+            content_md: "x".into(),
+            excerpt: None,
+            slug: None,
+            status: PostStatus::Published,
+            post_type: hancic::models::PostType::Post,
+            category_id: None,
+            column_id: None,
+            tags: vec![],
+        },
+    )
+    .await
+    .unwrap();
 
     // 合法 zip 骨架 + 内容非法的 hancic.db
     let mut buf = std::io::Cursor::new(Vec::new());
@@ -228,11 +266,22 @@ async fn restore_rejects_corrupt_db() {
 async fn restore_rejects_backslash_traversal() {
     let cfg = test_config("backup-zipslip");
     let pool = db::init(&cfg.data_dir).await.unwrap();
-    posts::create_post(&pool, posts::NewPost {
-        title: "保留文章".into(), content_md: "x".into(), excerpt: None, slug: None,
-        status: PostStatus::Published, post_type: hancic::models::PostType::Post,
-        category_id: None, column_id: None, tags: vec![],
-    }).await.unwrap();
+    posts::create_post(
+        &pool,
+        posts::NewPost {
+            title: "保留文章".into(),
+            content_md: "x".into(),
+            excerpt: None,
+            slug: None,
+            status: PostStatus::Published,
+            post_type: hancic::models::PostType::Post,
+            category_id: None,
+            column_id: None,
+            tags: vec![],
+        },
+    )
+    .await
+    .unwrap();
 
     // 恶意 zip：合法骨架（过格式校验）+ 反斜杠逃逸条目（zip 8 写入端原样存名）
     let evil_name = format!(
@@ -259,8 +308,8 @@ async fn restore_rejects_backslash_traversal() {
     let zip_path = cfg.data_dir.join("malicious.zip");
     std::fs::write(&zip_path, buf.into_inner()).unwrap();
     // 确认写入端原样保留反斜杠条目名（zip 8 不转义），测试才真正命中反斜杠绕过
-    let check = zip::ZipArchive::new(std::io::Cursor::new(std::fs::read(&zip_path).unwrap()))
-        .unwrap();
+    let check =
+        zip::ZipArchive::new(std::io::Cursor::new(std::fs::read(&zip_path).unwrap())).unwrap();
     let stored: Vec<String> = check.file_names().map(String::from).collect();
     assert!(
         stored.iter().any(|n| n == &evil_name),
@@ -276,7 +325,11 @@ async fn restore_rejects_backslash_traversal() {
         "evil-{}.txt",
         cfg.data_dir.file_name().unwrap().to_string_lossy()
     ));
-    assert!(!escaped.exists(), "不应逃逸到 data_dir 外: {}", escaped.display());
+    assert!(
+        !escaped.exists(),
+        "不应逃逸到 data_dir 外: {}",
+        escaped.display()
+    );
 
     // 现有数据未被改动：data_dir 未被改名（预检在改名前拒绝），原 db 仍可连
     assert!(

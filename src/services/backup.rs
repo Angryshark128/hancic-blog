@@ -111,7 +111,9 @@ pub async fn export_all(data_dir: &Path, out_zip: &Path) -> Result<BackupReport,
             "exported_at": Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
         });
         writer.start_file(META_ENTRY, options).map_err(internal)?;
-        writer.write_all(meta.to_string().as_bytes()).map_err(internal)?;
+        writer
+            .write_all(meta.to_string().as_bytes())
+            .map_err(internal)?;
         counts.files += 1;
         writer.finish().map_err(internal)?;
         let size = std::fs::metadata(out_zip).map_err(internal)?.len();
@@ -202,9 +204,7 @@ pub async fn restore(data_dir: &Path, zip_path: &Path) -> Result<RestoreReport, 
         let name = rel.to_string_lossy().replace('\\', "/");
         // 防线二：归一化后的条目路径仍须全部为普通组件（防预检被绕过的纵深防御）
         if !entry_name_is_safe(&name) {
-            return Err(AppError::BadRequest(format!(
-                "备份包含非法路径: {name}"
-            )));
+            return Err(AppError::BadRequest(format!("备份包含非法路径: {name}")));
         }
         let target = match name.as_str() {
             META_ENTRY => continue, // 元数据不落盘
@@ -355,4 +355,3 @@ async fn open_pool(db_path: &Path) -> Result<SqlitePool, AppError> {
 fn internal(e: impl std::fmt::Display) -> AppError {
     AppError::Internal(e.to_string())
 }
-

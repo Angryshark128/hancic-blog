@@ -12,13 +12,13 @@ use crate::db::Db;
 use crate::error::{AppError, AppResult};
 use crate::models::{Moment, Post, PostStatus, PostType};
 use crate::services::{likes, moments, posts, settings, stats, taxonomy};
-use crate::{themes, AppState};
+use crate::{AppState, themes};
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, Request, StatusCode, Uri, header};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
-use axum::Router;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -106,10 +106,7 @@ pub async fn site_context(db: &Db, base: &str, preview: Option<String>) -> AppRe
                 .filter_map(|item| {
                     let label = item.get("label").and_then(Value::as_str).unwrap_or("");
                     let url = item.get("url").and_then(Value::as_str).unwrap_or("");
-                    let ty = item
-                        .get("type")
-                        .and_then(Value::as_str)
-                        .unwrap_or("link");
+                    let ty = item.get("type").and_then(Value::as_str).unwrap_or("link");
                     let ty = if ty == "categories" {
                         "pages"
                     } else if item.get("type").is_none() && ty == "link" && label == "文章" {
@@ -162,7 +159,10 @@ pub async fn site_context(db: &Db, base: &str, preview: Option<String>) -> AppRe
     let mut social_qrs: Vec<Value> = Vec::new();
     if let Some(obj) = social_raw.as_object() {
         for (k, v) in obj {
-            let logo = social_logos.get(k).and_then(Value::as_str).unwrap_or_default();
+            let logo = social_logos
+                .get(k)
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             let item = json!({
                 "key": k,
                 "url": v.as_str().unwrap_or_default(),
@@ -317,9 +317,19 @@ async fn index(
         // 首页最近说说与说说页同构（moment + attachments），模板可渲染图片/视频附件
         ctx.insert(
             "moments",
-            &moment_items_value(&state.db, &state.config, &headers, &state.config.base_path, &moments).await?,
+            &moment_items_value(
+                &state.db,
+                &state.config,
+                &headers,
+                &state.config.base_path,
+                &moments,
+            )
+            .await?,
         );
-        ctx.insert("posts", &post_list_value(&state.db, &state.config.base_path, &items).await?);
+        ctx.insert(
+            "posts",
+            &post_list_value(&state.db, &state.config.base_path, &items).await?,
+        );
         ctx.insert("post_total", &total);
         ctx.insert("current_sort", &sort.field);
         let sort_base = format!("{}/", state.config.base_path);
@@ -342,19 +352,36 @@ async fn archives_page(
     let month = query.get("month").filter(|m| !m.is_empty()).cloned();
     let preview = resolve_preview(&state, &query);
     let out = async {
-        let mut ctx = listing_ctx(&state.db, &state.config.base_path, page, None, None, None, month.clone(), list_sort(&query), preview.clone()).await?;
+        let mut ctx = listing_ctx(
+            &state.db,
+            &state.config.base_path,
+            page,
+            None,
+            None,
+            None,
+            month.clone(),
+            list_sort(&query),
+            preview.clone(),
+        )
+        .await?;
         let tags = taxonomy::list_tags(&state.db).await?;
         let months = posts::month_list(&state.db).await?;
         ctx.insert(
             "all_tags",
-            &json!(tags
-                .iter()
-                .map(|t| json!({ "slug": t.slug, "name": t.name }))
-                .collect::<Vec<_>>()),
+            &json!(
+                tags.iter()
+                    .map(|t| json!({ "slug": t.slug, "name": t.name }))
+                    .collect::<Vec<_>>()
+            ),
         );
         ctx.insert(
             "months",
-            &json!(months.iter().map(|m| json!({ "month": m })).collect::<Vec<_>>()),
+            &json!(
+                months
+                    .iter()
+                    .map(|m| json!({ "month": m }))
+                    .collect::<Vec<_>>()
+            ),
         );
         ctx.insert("current_month", &month);
         let month_base = format!("{}/archives", state.config.base_path);
@@ -386,7 +413,11 @@ async fn post_page(
             .await?
             .filter(|p| p.status == PostStatus::Published && p.post_type == PostType::Post)
         {
-            let target = format!("{}{}", state.config.base_path, posts::public_post_path(&post));
+            let target = format!(
+                "{}{}",
+                state.config.base_path,
+                posts::public_post_path(&post)
+            );
             return Ok::<_, AppError>(axum::response::Redirect::permanent(&target).into_response());
         } else {
             return Err(AppError::NotFound("文章不存在".into()));
@@ -412,9 +443,13 @@ async fn post_page(
             post.excerpt.as_str(),
             &post.content_md,
             &format!("/post/{}", post.uuid),
-            site.and_then(|v| v.get_from_path("name")).and_then(|v| v.as_str()).unwrap_or("我的博客"),
+            site.and_then(|v| v.get_from_path("name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("我的博客"),
             &state.config.site_url,
-            site.and_then(|v| v.get_from_path("logo")).and_then(|v| v.as_str()).filter(|l| !l.trim().is_empty()),
+            site.and_then(|v| v.get_from_path("logo"))
+                .and_then(|v| v.as_str())
+                .filter(|l| !l.trim().is_empty()),
         );
         ctx.insert("share", &share);
         ctx.insert(
@@ -486,15 +521,8 @@ async fn record_view_once(state: &AppState, post: &Post, headers: &HeaderMap) {
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
-    if let Err(e) = stats::record_view(
-        &state.db,
-        post.id,
-        &ip,
-        &ua,
-        &referer,
-        &state.ip_searcher,
-    )
-    .await
+    if let Err(e) =
+        stats::record_view(&state.db, post.id, &ip, &ua, &referer, &state.ip_searcher).await
     {
         tracing::warn!("记录阅读失败 post_id={}: {e:?}", post.id);
     }
@@ -519,9 +547,13 @@ async fn page_page(
             page.excerpt.as_str(),
             &page.content_md,
             &format!("/page/{}", page.slug),
-            site.and_then(|v| v.get_from_path("name")).and_then(|v| v.as_str()).unwrap_or("我的博客"),
+            site.and_then(|v| v.get_from_path("name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("我的博客"),
             &state.config.site_url,
-            site.and_then(|v| v.get_from_path("logo")).and_then(|v| v.as_str()).filter(|l| !l.trim().is_empty()),
+            site.and_then(|v| v.get_from_path("logo"))
+                .and_then(|v| v.as_str())
+                .filter(|l| !l.trim().is_empty()),
         );
         ctx.insert("share", &share);
         // 页面正文（带标题锚点）+ 目录，供右侧栏导航（内容长时便于跳转）
@@ -562,9 +594,13 @@ async fn about_page(
             page.excerpt.as_str(),
             &page.content_md,
             "/about",
-            site.and_then(|v| v.get_from_path("name")).and_then(|v| v.as_str()).unwrap_or("我的博客"),
+            site.and_then(|v| v.get_from_path("name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("我的博客"),
             &state.config.site_url,
-            site.and_then(|v| v.get_from_path("logo")).and_then(|v| v.as_str()).filter(|l| !l.trim().is_empty()),
+            site.and_then(|v| v.get_from_path("logo"))
+                .and_then(|v| v.as_str())
+                .filter(|l| !l.trim().is_empty()),
         );
         ctx.insert("share", &share);
         let (content_html, toc) = crate::markdown::render_with_toc(&page.content_md);
@@ -595,19 +631,38 @@ async fn moments_page(
     let month = query.get("month").filter(|m| !m.is_empty()).cloned();
     let preview = resolve_preview(&state, &query);
     let out = async {
-        let (items, total) =
-            moments::list_moments(&state.db, month.as_deref(), false, None, page, MOMENTS_PAGE_SIZE).await?;
+        let (items, total) = moments::list_moments(
+            &state.db,
+            month.as_deref(),
+            false,
+            None,
+            page,
+            MOMENTS_PAGE_SIZE,
+        )
+        .await?;
         let mut ctx = site_context(&state.db, &state.config.base_path, preview.clone()).await?;
         // 与首页最近说说同款时间线折叠：默认单行，点击展开全文与附件
         ctx.insert(
             "moments",
-            &moment_items_value(&state.db, &state.config, &headers, &state.config.base_path, &items).await?,
+            &moment_items_value(
+                &state.db,
+                &state.config,
+                &headers,
+                &state.config.base_path,
+                &items,
+            )
+            .await?,
         );
         ctx.insert("pagination", &moments_pagination_value(page, total));
         let months = moments::month_list(&state.db).await?;
         ctx.insert(
             "months",
-            &json!(months.iter().map(|m| json!({ "month": m })).collect::<Vec<_>>()),
+            &json!(
+                months
+                    .iter()
+                    .map(|m| json!({ "month": m }))
+                    .collect::<Vec<_>>()
+            ),
         );
         ctx.insert("current_month", &month);
         let month_base = format!("{}/moments", state.config.base_path);
@@ -631,8 +686,18 @@ async fn category_page(
         let category = taxonomy::get_category_by_slug(&state.db, &slug)
             .await?
             .ok_or_else(|| AppError::NotFound("分类不存在".into()))?;
-        let mut ctx =
-            listing_ctx(&state.db, &state.config.base_path, page_param(&query), Some(slug), None, None, None, list_sort(&query), preview.clone()).await?;
+        let mut ctx = listing_ctx(
+            &state.db,
+            &state.config.base_path,
+            page_param(&query),
+            Some(slug),
+            None,
+            None,
+            None,
+            list_sort(&query),
+            preview.clone(),
+        )
+        .await?;
         ctx.insert(
             "category",
             &json!({ "slug": category.slug, "name": category.name }),
@@ -641,10 +706,12 @@ async fn category_page(
         let category_tags = taxonomy::tags_of_category(&state.db, category.id).await?;
         ctx.insert(
             "category_tags",
-            &json!(category_tags
-                .iter()
-                .map(|t| json!({ "slug": t.slug, "name": t.name }))
-                .collect::<Vec<_>>()),
+            &json!(
+                category_tags
+                    .iter()
+                    .map(|t| json!({ "slug": t.slug, "name": t.name }))
+                    .collect::<Vec<_>>()
+            ),
         );
         let sort_base = format!("{}/category/{}", state.config.base_path, category.slug);
         ctx.insert("sort_base", &sort_base);
@@ -672,7 +739,10 @@ async fn column_page(
         let sort = if query.contains_key("sort") {
             list_sort(&query)
         } else {
-            posts::PostSort { field: "published_at", asc: false }
+            posts::PostSort {
+                field: "published_at",
+                asc: false,
+            }
         };
         let mut ctx = listing_ctx(
             &state.db,
@@ -724,7 +794,10 @@ async fn columns_page(
                     tag_slug: None,
                     column_slug: Some(c.slug.clone()),
                     month: None,
-                    sort: Some(posts::PostSort { field: "column_sort", asc: true }),
+                    sort: Some(posts::PostSort {
+                        field: "column_sort",
+                        asc: true,
+                    }),
                     page: 1,
                     page_size: COLUMN_CARD_POSTS,
                 },
@@ -783,7 +856,12 @@ async fn tag_page(
         let months = posts::month_list_filtered(&state.db, None, Some(&slug)).await?;
         ctx.insert(
             "months",
-            &json!(months.iter().map(|m| json!({ "month": m })).collect::<Vec<_>>()),
+            &json!(
+                months
+                    .iter()
+                    .map(|m| json!({ "month": m }))
+                    .collect::<Vec<_>>()
+            ),
         );
         ctx.insert("current_month", &month);
         let month_base = format!("{}/tag/{slug}", state.config.base_path);
@@ -810,8 +888,14 @@ async fn search_page(
         let (hits, total) = posts::search_posts(&state.db, &q, page, PAGE_SIZE).await?;
         let mut ctx = site_context(&state.db, &state.config.base_path, preview.clone()).await?;
         ctx.insert("search_query", &q);
-        ctx.insert("posts", &search_hit_list_value(&state.config.base_path, &hits));
-        ctx.insert("pagination", &search_pagination_value(&state.config.base_path, page, total, &q));
+        ctx.insert(
+            "posts",
+            &search_hit_list_value(&state.config.base_path, &hits),
+        );
+        ctx.insert(
+            "pagination",
+            &search_pagination_value(&state.config.base_path, page, total, &q),
+        );
         // 全局搜索：同时匹配说说（最多 20 条，按时间倒序）
         let moments = if q.trim().is_empty() {
             Vec::new()
@@ -938,22 +1022,24 @@ async fn trail_page(
 
 /// 总览卡片 JSON：名称/日期/里程/爬升/点数/详情链接（显示字符串已格式化）。
 fn trail_card_value(trails: &[crate::models::Trail]) -> Value {
-    json!(trails
-        .iter()
-        .map(|t| json!({
-            "id": t.id,
-            "name": t.name,
-            "description": t.description,
-            "distance_km": t.distance_m.map(|m| m / 1000.0),
-            "distance_km_str": t.distance_m.map(|m| format!("{:.1}", m / 1000.0)),
-            "elevation_gain_m": t.elevation_gain_m,
-            "elevation_gain_str": t.elevation_gain_m.map(|e| format!("{e:.0}")),
-            "point_count": t.point_count,
-            "started_at": t.started_at.map(|d| d.to_rfc3339()),
-            "moving": crate::services::trails::format_moving(t.moving_seconds),
-            "url": format!("/trails/{}", t.id),
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        trails
+            .iter()
+            .map(|t| json!({
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "distance_km": t.distance_m.map(|m| m / 1000.0),
+                "distance_km_str": t.distance_m.map(|m| format!("{:.1}", m / 1000.0)),
+                "elevation_gain_m": t.elevation_gain_m,
+                "elevation_gain_str": t.elevation_gain_m.map(|e| format!("{e:.0}")),
+                "point_count": t.point_count,
+                "started_at": t.started_at.map(|d| d.to_rfc3339()),
+                "moving": crate::services::trails::format_moving(t.moving_seconds),
+                "url": format!("/trails/{}", t.id),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 /// 详情 JSON：数据卡片全部原始数值 + 展示用格式化字段。
@@ -997,7 +1083,13 @@ pub async fn not_found(State(state): State<AppState>) -> Response {
 // ---------- 静态资源 ----------
 
 async fn serve_uploads(State(state): State<AppState>, req: Request<Body>) -> Response {
-    serve_from(state.config.data_dir.join("uploads"), "/uploads", req, STATIC_CACHE).await
+    serve_from(
+        state.config.data_dir.join("uploads"),
+        "/uploads",
+        req,
+        STATIC_CACHE,
+    )
+    .await
 }
 
 async fn serve_theme_static(
@@ -1008,12 +1100,22 @@ async fn serve_theme_static(
     if !themes::is_valid_name(&name) {
         return render_error(&state, AppError::NotFound("资源不存在".into())).await;
     }
-    let base = state.config.data_dir.join("themes").join(&name).join("static");
+    let base = state
+        .config
+        .data_dir
+        .join("themes")
+        .join(&name)
+        .join("static");
     serve_from(base, &format!("/theme/{name}/static"), req, THEME_CACHE).await
 }
 
 /// 去掉挂载前缀后用 ServeDir 服务目录，并附加缓存头。
-async fn serve_from(base: PathBuf, prefix: &str, req: Request<Body>, cache: &'static str) -> Response {
+async fn serve_from(
+    base: PathBuf,
+    prefix: &str,
+    req: Request<Body>,
+    cache: &'static str,
+) -> Response {
     let uri = match strip_prefix_uri(req.uri(), prefix) {
         Some(u) => u,
         None => return (StatusCode::NOT_FOUND, "not found").into_response(),
@@ -1156,16 +1258,17 @@ async fn like_status_from_headers(
 
 /// 搜索页命中 JSON：标题/链接/高亮片段（`| safe` 渲染 `<mark>`）/日期/阅读量。
 fn search_hit_list_value(base: &str, hits: &[posts::SearchHit]) -> Value {
-    json!(hits
-        .iter()
-        .map(|h| json!({
-            "title": h.post.title,
-            "snippet": h.snippet,
-            "published_at": h.post.published_at.map(|d| d.to_rfc3339()),
-            "views": h.post.views,
-            "url": post_url(base, &h.post),
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        hits.iter()
+            .map(|h| json!({
+                "title": h.post.title,
+                "snippet": h.snippet,
+                "published_at": h.post.published_at.map(|d| d.to_rfc3339()),
+                "views": h.post.views,
+                "url": post_url(base, &h.post),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 /// 搜索页说说结果 JSON：`{ snippet, date }`。摘要去掉常见 markdown 标记后截断。
@@ -1179,7 +1282,9 @@ fn moment_search_value(moments: &[(i64, String, String)]) -> Value {
         // 行内链接 [text](url) → 整段移除（保留其余文字）
         loop {
             let Some(close) = s.find("](") else { break };
-            let Some(open) = s.rfind('[').filter(|&i| i < close) else { break };
+            let Some(open) = s.rfind('[').filter(|&i| i < close) else {
+                break;
+            };
             let end = s[close + 2..].find(')').map(|e| close + 2 + e);
             match end {
                 Some(end) => {
@@ -1210,13 +1315,15 @@ fn moment_search_value(moments: &[(i64, String, String)]) -> Value {
             s.to_string()
         }
     }
-    json!(moments
-        .iter()
-        .map(|(_, content, date)| json!({
-            "snippet": clean(content),
-            "date": date,
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        moments
+            .iter()
+            .map(|(_, content, date)| json!({
+                "snippet": clean(content),
+                "date": date,
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 /// 文章页上下文 JSON。
@@ -1567,7 +1674,9 @@ fn urlencode_q(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }
@@ -1630,9 +1739,18 @@ async fn resolve_theme_name(state: &AppState, preview: Option<&str>) -> String {
 /// 主题 tera 走 `state.theme_cache`：按主题名缓存，重复访问零成本；
 /// 后台切换主题（写 settings.active_theme）后，下一次请求按新主题名取缓存、
 /// 未命中则构建并替换——切换主题无需重启服务。
-async fn render(state: &AppState, template: &str, ctx: &Context, preview: Option<&str>) -> Response {
+async fn render(
+    state: &AppState,
+    template: &str,
+    ctx: &Context,
+    preview: Option<&str>,
+) -> Response {
     let name = resolve_theme_name(state, preview).await;
-    let tera = match state.theme_cache.get_or_build(&state.themes_dir, &name).await {
+    let tera = match state
+        .theme_cache
+        .get_or_build(&state.themes_dir, &name)
+        .await
+    {
         Ok(t) => t,
         Err(e) => {
             tracing::error!("主题 {name} 模板加载失败: {e}");
@@ -1666,7 +1784,11 @@ async fn render_error(state: &AppState, err: AppError) -> Response {
     // 错误页主题与正常渲染保持一致：按 settings.active_theme 取缓存，
     // 这样新主题刚切完即生效、错误页风格与正文同步。
     let err_theme = resolve_theme_name(state, None).await;
-    let tera = match state.theme_cache.get_or_build(&state.themes_dir, &err_theme).await {
+    let tera = match state
+        .theme_cache
+        .get_or_build(&state.themes_dir, &err_theme)
+        .await
+    {
         Ok(t) => t,
         Err(e) => {
             tracing::error!("错误页主题 {err_theme} 模板加载失败: {e}");

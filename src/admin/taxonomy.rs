@@ -11,7 +11,7 @@
 use crate::error::AppError;
 use crate::models::{Category, Tag};
 use crate::services::{posts, taxonomy};
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, OriginalUri, Path, Query, State};
 use axum::response::Response;
 use serde_json::{Value, json};
@@ -27,12 +27,18 @@ pub async fn list(
     uri: OriginalUri,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
-    let categories = taxonomy::list_categories(&state.db).await.unwrap_or_default();
+    let categories = taxonomy::list_categories(&state.db)
+        .await
+        .unwrap_or_default();
     let tags = taxonomy::list_tags(&state.db).await.unwrap_or_default();
-    let cat_counts = taxonomy::count_categories_posts(&state.db).await.unwrap_or_default();
-    let tag_counts = taxonomy::count_tags_posts(&state.db).await.unwrap_or_default();
+    let cat_counts = taxonomy::count_categories_posts(&state.db)
+        .await
+        .unwrap_or_default();
+    let tag_counts = taxonomy::count_tags_posts(&state.db)
+        .await
+        .unwrap_or_default();
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
     ctx.insert("categories", &categories_value(&categories, &cat_counts));
     ctx.insert("tags", &tags_value(&tags, &tag_counts));
@@ -63,7 +69,7 @@ pub async fn create_category(
     let slug = parse_slug(form.get("slug"), &name).await;
     let sort_order = parse_sort_order(form.get("sort_order"));
     match taxonomy::create_category(&state.db, &name, &slug, sort_order).await {
-        Ok(_) => Ok(super::redirect(&state.config.base_path,  "/admin/taxonomy")),
+        Ok(_) => Ok(super::redirect(&state.config.base_path, "/admin/taxonomy")),
         // slug 唯一约束冲突由服务层返回 Conflict，作为错误回显而非 409 落页
         Err(AppError::Conflict(_)) => Ok(fail(&state.config.base_path, "分类 slug 已存在")),
         Err(e) => {
@@ -94,7 +100,10 @@ pub async fn update_category(
     // 避免改名导致前台分类页链接失效。
     let existing = taxonomy::get_category_by_id(&state.db, id).await?;
     let slug = match form.get("slug").map(String::as_str).unwrap_or("").trim() {
-        "" => existing.as_ref().map(|c| c.slug.clone()).unwrap_or_default(),
+        "" => existing
+            .as_ref()
+            .map(|c| c.slug.clone())
+            .unwrap_or_default(),
         s => s.to_string(),
     };
     // slug 冲突预检：update_category 直接写库不查重，撞 UNIQUE 约束会 500，
@@ -109,7 +118,7 @@ pub async fn update_category(
         None => existing.map(|c| c.sort_order).unwrap_or(0),
     };
     match taxonomy::update_category(&state.db, id, &name, &slug, sort_order).await {
-        Ok(_) => Ok(super::redirect(&state.config.base_path,  "/admin/taxonomy")),
+        Ok(_) => Ok(super::redirect(&state.config.base_path, "/admin/taxonomy")),
         Err(e) => {
             tracing::error!("更新分类失败: {e:?}");
             Ok(fail(&state.config.base_path, "更新分类失败，请重试"))
@@ -128,7 +137,7 @@ pub async fn delete_category(
     session::require_admin(&session).await?;
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
     match taxonomy::delete_category(&state.db, id).await {
-        Ok(()) => Ok(super::redirect(&state.config.base_path,  "/admin/taxonomy")),
+        Ok(()) => Ok(super::redirect(&state.config.base_path, "/admin/taxonomy")),
         Err(e) => {
             tracing::error!("删除分类失败: {e:?}");
             Ok(fail(&state.config.base_path, "删除分类失败，请重试"))
@@ -152,7 +161,7 @@ pub async fn create_tag(
     }
     // ensure_tag 内部按 slug 去重：同名标签复用已有记录，不会冲突
     match taxonomy::ensure_tag(&state.db, &name).await {
-        Ok(_) => Ok(super::redirect(&state.config.base_path,  "/admin/taxonomy")),
+        Ok(_) => Ok(super::redirect(&state.config.base_path, "/admin/taxonomy")),
         Err(e) => {
             tracing::error!("创建标签失败: {e:?}");
             Ok(fail(&state.config.base_path, "创建标签失败，请重试"))
@@ -169,7 +178,7 @@ pub async fn delete_tag(
     session::require_admin(&session).await?;
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
     match taxonomy::delete_tag(&state.db, id).await {
-        Ok(()) => Ok(super::redirect(&state.config.base_path,  "/admin/taxonomy")),
+        Ok(()) => Ok(super::redirect(&state.config.base_path, "/admin/taxonomy")),
         Err(e) => {
             tracing::error!("删除标签失败: {e:?}");
             Ok(fail(&state.config.base_path, "删除标签失败，请重试"))
@@ -213,16 +222,17 @@ fn urlencode(s: &str) -> String {
 }
 
 fn categories_value(cats: &[Category], counts: &HashMap<i64, i64>) -> Value {
-    json!(cats
-        .iter()
-        .map(|c| json!({
-            "id": c.id,
-            "slug": c.slug,
-            "name": c.name,
-            "sort_order": c.sort_order,
-            "count": counts.get(&c.id).copied().unwrap_or(0),
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        cats.iter()
+            .map(|c| json!({
+                "id": c.id,
+                "slug": c.slug,
+                "name": c.name,
+                "sort_order": c.sort_order,
+                "count": counts.get(&c.id).copied().unwrap_or(0),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 fn tags_value(tags: &[Tag], counts: &HashMap<i64, i64>) -> Value {
@@ -231,4 +241,3 @@ fn tags_value(tags: &[Tag], counts: &HashMap<i64, i64>) -> Value {
         .map(|t| json!({ "id": t.id, "slug": t.slug, "name": t.name, "count": counts.get(&t.id).copied().unwrap_or(0) }))
         .collect::<Vec<_>>())
 }
-

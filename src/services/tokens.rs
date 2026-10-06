@@ -8,11 +8,11 @@
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::ApiToken;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
-use rand::rngs::SysRng;
 use rand::TryRng;
+use rand::rngs::SysRng;
 use sha2::{Digest, Sha256};
 use sqlx::FromRow;
 use std::collections::HashMap;

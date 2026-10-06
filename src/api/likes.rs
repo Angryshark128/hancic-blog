@@ -1,12 +1,12 @@
+use crate::AppState;
 use crate::config::Config;
 use crate::error::AppError;
 use crate::models::LikeContentType;
 use crate::services::likes::{self, LikeStatus};
-use crate::AppState;
-use axum::extract::{Query, State};
-use axum::http::{header, HeaderMap, HeaderValue};
-use axum::response::{IntoResponse, Response};
 use axum::Json;
+use axum::extract::{Query, State};
+use axum::http::{HeaderMap, HeaderValue, header};
+use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -33,7 +33,8 @@ pub async fn status(
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     let (visitor_id, set_cookie) = ensure_visitor_cookie(&state.config, &headers);
-    let data = likes::like_status(&state.db, query.content_type, query.content_id, &visitor_id).await?;
+    let data =
+        likes::like_status(&state.db, query.content_type, query.content_id, &visitor_id).await?;
     Ok(like_response(data, set_cookie))
 }
 

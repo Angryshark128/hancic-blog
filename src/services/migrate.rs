@@ -9,12 +9,12 @@
 //! 超时）；成功替换正文 URL 为 `/uploads/<path>`，失败记入报告不中断导入。
 //! 无 front-matter 时 title=正文首行 `# `，slug=文件名；空文件跳过。
 
+use super::{MAX_ENTRY_BYTES, MAX_TOTAL_BYTES};
 use crate::config::Config;
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::{PostStatus, PostType};
 use crate::services::{posts, taxonomy, uploads};
-use super::{MAX_ENTRY_BYTES, MAX_TOTAL_BYTES};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, SecondsFormat, Utc};
 use serde::Serialize;
 
@@ -103,12 +103,12 @@ fn split_front_matter(raw: &str) -> Result<(FrontMatter, String), String> {
 /// 标量值：去掉首尾引号。
 fn parse_scalar(v: &str) -> Option<String> {
     let v = v.trim();
-    let v = if (v.starts_with('"') && v.ends_with('"')) || (v.starts_with('\'') && v.ends_with('\''))
-    {
-        &v[1..v.len() - 1]
-    } else {
-        v
-    };
+    let v =
+        if (v.starts_with('"') && v.ends_with('"')) || (v.starts_with('\'') && v.ends_with('\'')) {
+            &v[1..v.len() - 1]
+        } else {
+            v
+        };
     let v = v.trim();
     if v.is_empty() {
         None
@@ -124,10 +124,7 @@ fn parse_list(v: &str) -> Vec<String> {
         .strip_prefix('[')
         .and_then(|s| s.strip_suffix(']'))
         .unwrap_or(v);
-    inner
-        .split(',')
-        .filter_map(parse_scalar)
-        .collect()
+    inner.split(',').filter_map(parse_scalar).collect()
 }
 
 /// 遍历 zip 导入全部 Markdown 文章（含图片落库与正文 URL 替换）。
@@ -185,10 +182,16 @@ pub async fn import_halo_zip(
         let file_name = {
             let mut entry = archive.by_index(idx).map_err(internal)?;
             let file_name = entry.name().to_string();
-            let n = match entry.by_ref().take(MAX_ENTRY_BYTES + 1).read_to_string(&mut raw) {
+            let n = match entry
+                .by_ref()
+                .take(MAX_ENTRY_BYTES + 1)
+                .read_to_string(&mut raw)
+            {
                 Ok(n) => n,
                 Err(_) => {
-                    report.failures.push(format!("{file_name}: 非 UTF-8 编码，跳过"));
+                    report
+                        .failures
+                        .push(format!("{file_name}: 非 UTF-8 编码，跳过"));
                     report.posts_skipped += 1;
                     continue;
                 }
@@ -256,10 +259,9 @@ pub async fn import_halo_zip(
                     }
                 }
                 Err(e) => {
-                    report.failures.push(format!(
-                        "{file_name}: 分类 {name} 处理失败 {}",
-                        e.message()
-                    ));
+                    report
+                        .failures
+                        .push(format!("{file_name}: 分类 {name} 处理失败 {}", e.message()));
                     continue 'posts;
                 }
             }
@@ -268,10 +270,9 @@ pub async fn import_halo_zip(
             match taxonomy::ensure_tag(db, name).await {
                 Ok(_) => report.tags += 1,
                 Err(e) => {
-                    report.failures.push(format!(
-                        "{file_name}: 标签 {name} 处理失败 {}",
-                        e.message()
-                    ));
+                    report
+                        .failures
+                        .push(format!("{file_name}: 标签 {name} 处理失败 {}", e.message()));
                     continue 'posts;
                 }
             }
@@ -324,18 +325,24 @@ pub async fn import_halo_zip(
         }
 
         // 正文图片管线：替换 URL 后更新文章（失败不中断，post 已创建）
-        let new_content =
-            match process_images(&img_ctx, &body, &mut archive, &mut report, &file_name, &mut total_bytes)
-                .await
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    report
-                        .failures
-                        .push(format!("{file_name}: 图片处理失败 {}", e.message()));
-                    continue;
-                }
-            };
+        let new_content = match process_images(
+            &img_ctx,
+            &body,
+            &mut archive,
+            &mut report,
+            &file_name,
+            &mut total_bytes,
+        )
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                report
+                    .failures
+                    .push(format!("{file_name}: 图片处理失败 {}", e.message()));
+                continue;
+            }
+        };
         if new_content != body {
             if let Err(e) = posts::update_post(
                 db,
@@ -396,10 +403,9 @@ async fn process_images(
                 Ok(s) => s,
                 Err(e) => {
                     report.images_failed += 1;
-                    report.failures.push(format!(
-                        "{file_name}: 图片 {url} 处理失败 {}",
-                        e.message()
-                    ));
+                    report
+                        .failures
+                        .push(format!("{file_name}: 图片 {url} 处理失败 {}", e.message()));
                     format!("![{alt}]({url})")
                 }
             };
@@ -492,10 +498,9 @@ async fn process_one_image(
         Ok(att) => Ok(format!("![{alt}](/uploads/{})", att.path)),
         Err(e) => {
             report.images_failed += 1;
-            report.failures.push(format!(
-                "{file_name}: 图片 {url} 保存失败 {}",
-                e.message()
-            ));
+            report
+                .failures
+                .push(format!("{file_name}: 图片 {url} 保存失败 {}", e.message()));
             Ok(original)
         }
     }
@@ -655,7 +660,10 @@ fn mime_for_name(name: &str) -> Option<&'static str> {
 }
 
 fn is_supported_mime(mime: &str) -> bool {
-    matches!(mime, "image/png" | "image/jpeg" | "image/webp" | "image/gif")
+    matches!(
+        mime,
+        "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+    )
 }
 
 /// 分类按名称 ensure：slug 已存在则复用，否则创建（sort_order 0，后台可再调整）。

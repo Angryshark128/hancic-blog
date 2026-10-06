@@ -92,21 +92,35 @@ async fn admin_upload_valid_gpx_then_front_display() {
     // 上传（名称留空 → 用 GPX 内 metadata name）
     let csrf = admin_csrf(&client, &base).await;
     let res = upload_gpx(&client, &base, &csrf, "trail.gpx", GPX_VALID.as_bytes(), "").await;
-    assert_eq!(res.status(), reqwest::StatusCode::FOUND, "上传应 302 回列表");
+    assert_eq!(
+        res.status(),
+        reqwest::StatusCode::FOUND,
+        "上传应 302 回列表"
+    );
 
     // 落库校验：统计计算正确 + 文件落盘
-    let items = trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap();
+    let items = trails::list_trails(&pool, trails::TrailSort::Recent)
+        .await
+        .unwrap();
     assert_eq!(items.len(), 1);
     let t = &items[0];
     assert_eq!(t.name, "测试轨迹");
     assert_eq!(t.point_count, 3);
-    assert!(t.distance_m.unwrap() > 1800.0 && t.distance_m.unwrap() < 1900.0, "distance={:?}", t.distance_m);
+    assert!(
+        t.distance_m.unwrap() > 1800.0 && t.distance_m.unwrap() < 1900.0,
+        "distance={:?}",
+        t.distance_m
+    );
     assert!((t.elevation_gain_m.unwrap() - 50.0).abs() < 1e-6);
     assert!((t.elevation_loss_m.unwrap() - 50.0).abs() < 1e-6);
     assert_eq!(t.moving_seconds, Some(120));
     assert_eq!(t.max_elevation_m, Some(150.0));
     assert_eq!(t.min_elevation_m, Some(100.0));
-    assert!(t.simplified.contains("31.2304"), "simplified 含起点: {}", t.simplified);
+    assert!(
+        t.simplified.contains("31.2304"),
+        "simplified 含起点: {}",
+        t.simplified
+    );
     // 完整坐标 JSON 落盘（详情页直接加载）
     let coords = trails::load_full_coords(&cfg.data_dir.join("trails"), t.id).unwrap();
     assert_eq!(coords.len(), 3);
@@ -164,18 +178,48 @@ async fn admin_upload_rejects_invalid_gpx_and_extension() {
     let csrf = admin_csrf(&client, &base).await;
 
     // 无轨迹点：拒绝并回显错误
-    let res = upload_gpx(&client, &base, &csrf, "empty.gpx", GPX_NO_TRKPT.as_bytes(), "").await;
+    let res = upload_gpx(
+        &client,
+        &base,
+        &csrf,
+        "empty.gpx",
+        GPX_NO_TRKPT.as_bytes(),
+        "",
+    )
+    .await;
     assert_eq!(res.status(), reqwest::StatusCode::FOUND);
-    let loc = res.headers().get("location").unwrap().to_str().unwrap().to_string();
+    let loc = res
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     assert!(loc.contains("msg="), "失败应带 msg: {loc}");
-    assert!(trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap().is_empty());
+    assert!(
+        trails::list_trails(&pool, trails::TrailSort::Recent)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     // 非 .gpx 扩展名：拒绝
     let res = upload_gpx(&client, &base, &csrf, "trail.txt", GPX_VALID.as_bytes(), "").await;
     assert_eq!(res.status(), reqwest::StatusCode::FOUND);
-    let loc = res.headers().get("location").unwrap().to_str().unwrap().to_string();
+    let loc = res
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     assert!(loc.contains("msg="), "非 gpx 应拒绝: {loc}");
-    assert!(trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap().is_empty());
+    assert!(
+        trails::list_trails(&pool, trails::TrailSort::Recent)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     // 缺文件字段：拒绝
     let form = reqwest::multipart::Form::new().text("csrf", csrf.clone());
@@ -186,7 +230,12 @@ async fn admin_upload_rejects_invalid_gpx_and_extension() {
         .await
         .unwrap();
     assert_eq!(res.status(), reqwest::StatusCode::FOUND);
-    assert!(trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap().is_empty());
+    assert!(
+        trails::list_trails(&pool, trails::TrailSort::Recent)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     // 上传前未带 csrf：拒绝
     let form = reqwest::multipart::Form::new().part(
@@ -203,7 +252,12 @@ async fn admin_upload_rejects_invalid_gpx_and_extension() {
         .await
         .unwrap();
     assert_eq!(res.status(), reqwest::StatusCode::FOUND);
-    assert!(trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap().is_empty());
+    assert!(
+        trails::list_trails(&pool, trails::TrailSort::Recent)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -219,7 +273,9 @@ async fn trail_crud_update_name_and_delete_files() {
     let csrf = admin_csrf(&client, &base).await;
     let res = upload_gpx(&client, &base, &csrf, "trail.gpx", GPX_VALID.as_bytes(), "").await;
     assert_eq!(res.status(), reqwest::StatusCode::FOUND);
-    let t = &trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap()[0];
+    let t = &trails::list_trails(&pool, trails::TrailSort::Recent)
+        .await
+        .unwrap()[0];
     let id = t.id;
     let gpx_path = cfg.data_dir.join("trails").join(&t.file_path);
     let json_path = cfg.data_dir.join("trails").join(format!("{id}.json"));
@@ -228,7 +284,11 @@ async fn trail_crud_update_name_and_delete_files() {
     // 编辑名称/描述（后台接口）
     let res = client
         .post(format!("{base}/admin/trails/{id}/update"))
-        .form(&[("csrf", csrf.as_str()), ("name", "改名轨迹"), ("description", "路线描述")])
+        .form(&[
+            ("csrf", csrf.as_str()),
+            ("name", "改名轨迹"),
+            ("description", "路线描述"),
+        ])
         .send()
         .await
         .unwrap();
@@ -255,7 +315,12 @@ async fn trail_crud_update_name_and_delete_files() {
         .await
         .unwrap();
     assert_eq!(res.status(), reqwest::StatusCode::FOUND);
-    assert!(trails::list_trails(&pool, trails::TrailSort::Recent).await.unwrap().is_empty());
+    assert!(
+        trails::list_trails(&pool, trails::TrailSort::Recent)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert!(!gpx_path.exists(), "GPX 文件应删除");
     assert!(!json_path.exists(), "完整坐标 JSON 应删除");
 }

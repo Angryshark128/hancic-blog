@@ -17,7 +17,7 @@
 use crate::error::AppError;
 use crate::models::ApiToken;
 use crate::services::tokens;
-use crate::{session, AppState};
+use crate::{AppState, session};
 use axum::extract::{Form, OriginalUri, Path, Query, State};
 use axum::response::Response;
 use serde_json::{Value, json};
@@ -36,7 +36,7 @@ pub async fn list(
     uri: OriginalUri,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let tokens = tokens::list(&state.db).await.unwrap_or_default();
     let (mut ctx, _csrf) = super::base_ctx(&state, &session, uri.path()).await;
@@ -66,10 +66,10 @@ pub async fn create(
         Ok((token, plain)) => {
             // 明文入内存暂存，created 页读取即删（仅显示一次）
             state.token_plain.put(token.id, plain);
-            Ok(super::redirect(&state.config.base_path, &format!(
-                "/admin/tokens/{}/created",
-                token.id
-            )))
+            Ok(super::redirect(
+                &state.config.base_path,
+                &format!("/admin/tokens/{}/created", token.id),
+            ))
         }
         Err(e) => {
             tracing::error!("生成 Token 失败: {e:?}");
@@ -87,10 +87,10 @@ pub async fn created_page(
     uri: OriginalUri,
 ) -> Response {
     if session::require_admin(&session).await.is_err() {
-        return super::redirect(&state.config.base_path,  "/admin/login");
+        return super::redirect(&state.config.base_path, "/admin/login");
     }
     let Some(token) = tokens::get_by_id(&state.db, id).await.ok().flatten() else {
-        return super::redirect(&state.config.base_path,  "/admin/tokens");
+        return super::redirect(&state.config.base_path, "/admin/tokens");
     };
     // 读取即删：刷新/二次访问拿到的是已失效提示
     let (plain, expired) = match state.token_plain.take(id) {
@@ -115,7 +115,7 @@ pub async fn revoke(
     session::require_admin(&session).await?;
     session::verify_csrf(&session, form.get("csrf").map(String::as_str)).await?;
     match tokens::revoke(&state.db, id).await {
-        Ok(()) => Ok(super::redirect(&state.config.base_path,  "/admin/tokens")),
+        Ok(()) => Ok(super::redirect(&state.config.base_path, "/admin/tokens")),
         Err(e) => {
             tracing::error!("吊销 Token 失败: {e:?}");
             Ok(fail(&state.config.base_path, "吊销 Token 失败，请重试"))
@@ -145,14 +145,16 @@ fn urlencode(s: &str) -> String {
 }
 
 fn tokens_value(tokens: &[ApiToken]) -> Value {
-    json!(tokens
-        .iter()
-        .map(|t| json!({
-            "id": t.id,
-            "name": t.name,
-            "prefix": &t.token_hash[..PREFIX_LEN],
-            "created_at": super::format_local(t.created_at),
-            "status": if t.revoked_at.is_some() { "revoked" } else { "active" },
-        }))
-        .collect::<Vec<_>>())
+    json!(
+        tokens
+            .iter()
+            .map(|t| json!({
+                "id": t.id,
+                "name": t.name,
+                "prefix": &t.token_hash[..PREFIX_LEN],
+                "created_at": super::format_local(t.created_at),
+                "status": if t.revoked_at.is_some() { "revoked" } else { "active" },
+            }))
+            .collect::<Vec<_>>()
+    )
 }

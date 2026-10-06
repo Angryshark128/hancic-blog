@@ -11,7 +11,11 @@ use hancic::services::settings;
 
 /// 设置页表单完整字段（与页面一致），`save` 时拼上 csrf 再提交。
 /// 主题模式/时区已移至系统设置页，此处不含。
-fn save_fields<'a>(site_name: &'a str, site_nav: &'a str, site_social: &'a str) -> Vec<(&'a str, &'a str)> {
+fn save_fields<'a>(
+    site_name: &'a str,
+    site_nav: &'a str,
+    site_social: &'a str,
+) -> Vec<(&'a str, &'a str)> {
     vec![
         ("site_name", site_name),
         ("site_desc", "测试描述"),
@@ -21,14 +25,23 @@ fn save_fields<'a>(site_name: &'a str, site_nav: &'a str, site_social: &'a str) 
 }
 
 /// `save` 提交字段：完整字段 + csrf（reqwest `.form()` 二次调用会覆盖，需一次拼齐）。
-fn save_form<'a>(site_name: &'a str, site_nav: &'a str, site_social: &'a str, csrf: &'a str) -> Vec<(&'a str, &'a str)> {
+fn save_form<'a>(
+    site_name: &'a str,
+    site_nav: &'a str,
+    site_social: &'a str,
+    csrf: &'a str,
+) -> Vec<(&'a str, &'a str)> {
     let mut fields = save_fields(site_name, site_nav, site_social);
     fields.push(("csrf", csrf));
     fields
 }
 
 /// 系统设置页表单（主题模式 + 时区）+ csrf。
-fn system_form<'a>(theme_mode: &'a str, timezone: &'a str, csrf: &'a str) -> Vec<(&'a str, &'a str)> {
+fn system_form<'a>(
+    theme_mode: &'a str,
+    timezone: &'a str,
+    csrf: &'a str,
+) -> Vec<(&'a str, &'a str)> {
     vec![
         ("theme_mode", theme_mode),
         ("timezone", timezone),
@@ -48,15 +61,25 @@ async fn settings_save_updates_db_and_front_header() {
     assert!(login_admin(&client, &addr).await);
 
     // 设置页可访问：显示当前站点名与各输入框（顺带拿 CSRF）
-    let res = client.get(format!("{base}/admin/settings")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/settings"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200, "设置页应可访问");
     let html = res.text().await.unwrap();
     let csrf = extract_csrf(&html);
     assert!(html.contains("我的博客"), "设置页应显示当前站点名");
-    assert!(html.contains("name=\"site_name\""), "设置页应有站点名输入框");
+    assert!(
+        html.contains("name=\"site_name\""),
+        "设置页应有站点名输入框"
+    );
     assert!(html.contains("name=\"site_nav\""), "设置页应有导航输入框");
     // 修改密码已拆为独立页（左侧菜单），设置页不含密码表单
-    assert!(!html.contains("name=\"old_password\""), "设置页不应含修改密码表单");
+    assert!(
+        !html.contains("name=\"old_password\""),
+        "设置页不应含修改密码表单"
+    );
 
     // 保存新配置（含导航/社交 JSON、深色模式、东京时区）
     let res = client
@@ -86,7 +109,10 @@ async fn settings_save_updates_db_and_front_header() {
         Some(r#"[{"label":"首页","url":"/"},{"label":"关于","url":"/about"}]"#)
     );
     assert_eq!(
-        settings::get(&pool, "site_social").await.unwrap().as_deref(),
+        settings::get(&pool, "site_social")
+            .await
+            .unwrap()
+            .as_deref(),
         Some(r#"{"github":"https://github.com/hancic"}"#)
     );
     // 主题模式/时区走系统设置页保存
@@ -119,8 +145,14 @@ async fn settings_save_updates_db_and_front_header() {
     let res = client.get(format!("{base}/")).send().await.unwrap();
     assert_eq!(res.status(), 200, "前台首页应可访问");
     let html = res.text().await.unwrap();
-    assert!(html.contains("寒蝉测试站"), "前台 header 应显示新站点名: {html}");
-    assert!(html.contains(r#"data-mode="dark""#), "前台应应用深色模式: {html}");
+    assert!(
+        html.contains("寒蝉测试站"),
+        "前台 header 应显示新站点名: {html}"
+    );
+    assert!(
+        html.contains(r#"data-mode="dark""#),
+        "前台应应用深色模式: {html}"
+    );
 }
 
 #[tokio::test]
@@ -147,14 +179,22 @@ async fn invalid_inputs_error_render_and_keep_db() {
     // 1. 非法 nav JSON（对象而非数组）→ 200 错误回显，保留已填值，不落库
     let res = client
         .post(format!("{base}/admin/settings/save"))
-        .form(&save_form("应回显站名", r#"{"label":"首页"}"#, r#"{}"#, csrf.as_str()))
+        .form(&save_form(
+            "应回显站名",
+            r#"{"label":"首页"}"#,
+            r#"{}"#,
+            csrf.as_str(),
+        ))
         .send()
         .await
         .unwrap();
     assert_eq!(res.status(), 200, "校验失败应重渲染表单而非跳转");
     let html = res.text().await.unwrap();
     assert!(html.contains("JSON 数组"), "应提示导航格式错误: {html}");
-    assert!(html.contains("应回显站名"), "应保留用户已填的站点名: {html}");
+    assert!(
+        html.contains("应回显站名"),
+        "应保留用户已填的站点名: {html}"
+    );
     assert_eq!(
         settings::get(&pool, "site_name").await.unwrap().as_deref(),
         Some("我的博客"),
@@ -164,7 +204,12 @@ async fn invalid_inputs_error_render_and_keep_db() {
     // 2. 导航数组但某项缺 url → 200 错误回显
     let res = client
         .post(format!("{base}/admin/settings/save"))
-        .form(&save_form("站名", r#"[{"label":"首页"}]"#, r#"{}"#, csrf.as_str()))
+        .form(&save_form(
+            "站名",
+            r#"[{"label":"首页"}]"#,
+            r#"{}"#,
+            csrf.as_str(),
+        ))
         .send()
         .await
         .unwrap();
@@ -211,7 +256,10 @@ async fn invalid_inputs_error_render_and_keep_db() {
         .unwrap();
     assert_eq!(res.status(), 200, "空站点名应校验失败");
     let html = res.text().await.unwrap();
-    assert!(html.contains("站点名称不能为空"), "应提示站点名不能为空: {html}");
+    assert!(
+        html.contains("站点名称不能为空"),
+        "应提示站点名不能为空: {html}"
+    );
 
     // 全程无任何落库
     assert_eq!(
@@ -242,7 +290,10 @@ async fn change_password_flow() {
         .await
         .unwrap();
     let csrf = extract_csrf(&html);
-    let old_hash = hancic::auth::get_password_hash(&pool).await.unwrap().unwrap();
+    let old_hash = hancic::auth::get_password_hash(&pool)
+        .await
+        .unwrap()
+        .unwrap();
     let res = client
         .post(format!("{base}/admin/system/password"))
         .form(&[
@@ -258,7 +309,10 @@ async fn change_password_flow() {
     let html = res.text().await.unwrap();
     assert!(html.contains("旧密码不正确"), "应提示旧密码错误: {html}");
     assert_eq!(
-        hancic::auth::get_password_hash(&pool).await.unwrap().unwrap(),
+        hancic::auth::get_password_hash(&pool)
+            .await
+            .unwrap()
+            .unwrap(),
         old_hash,
         "旧密码错误时密码哈希不应改变"
     );
@@ -337,7 +391,11 @@ async fn change_password_flow() {
     assert_eq!(res.status(), 302, "修改成功应 302 跳登录页（会话已失效）");
 
     // 登出后用新密码登录
-    let res = client.get(format!("{base}/admin/logout")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/logout"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 302, "登出应 302");
     let html = client
         .get(format!("{base}/admin/login"))
@@ -368,7 +426,11 @@ async fn change_password_flow() {
     );
 
     // 登出后旧密码不可登录
-    let res = client.get(format!("{base}/admin/logout")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/logout"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 302);
     let html = client
         .get(format!("{base}/admin/login"))
@@ -460,8 +522,5 @@ async fn change_password_invalidates_existing_sessions() {
         .to_str()
         .unwrap()
         .to_string();
-    assert!(
-        location.contains("/admin/login"),
-        "应跳登录页: {location}"
-    );
+    assert!(location.contains("/admin/login"), "应跳登录页: {location}");
 }

@@ -5,12 +5,12 @@
 //! 端点鉴权入口是 `api::require_admin_or_token`（session 或 Bearer 二选一），
 //! `require_token` 提供仅 Bearer 的 handler extractor 形态。
 
+use crate::AppState;
 use crate::error::AppError;
 use crate::services::tokens;
-use crate::AppState;
 use axum::extract::State;
-use axum::http::header;
 use axum::http::HeaderMap;
+use axum::http::header;
 
 /// 仅凭 Bearer token 鉴权（handler extractor 形态）。
 pub async fn require_token(
@@ -30,18 +30,11 @@ pub fn bearer_token(headers: &HeaderMap) -> Option<&str> {
         return None;
     }
     let raw = raw.trim();
-    if raw.is_empty() {
-        None
-    } else {
-        Some(raw)
-    }
+    if raw.is_empty() { None } else { Some(raw) }
 }
 
 /// 校验 Bearer 明文：格式无效或未命中未吊销 Token 均 401。
-pub(crate) async fn verify_bearer(
-    state: &AppState,
-    headers: &HeaderMap,
-) -> Result<(), AppError> {
+pub(crate) async fn verify_bearer(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
     let raw = bearer_token(headers).ok_or_else(unauthorized)?;
     if tokens::verify(&state.db, raw).await {
         Ok(())

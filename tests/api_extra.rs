@@ -2,10 +2,10 @@
 //! settings 只读、themes 列表/激活、trails 列表/详情 走查。
 
 mod common;
-use common::test_app;
+use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
-use axum::Router;
+use common::test_app;
 use hancic::db::Db;
 use hancic::services::tokens;
 use serde_json::{Value, json};
@@ -69,14 +69,16 @@ async fn moments_list_detail_update() {
         .await
         .unwrap();
     }
-    let att1: i64 = sqlx::query_scalar("SELECT id FROM attachments WHERE uuid_name = 'api-extra-0'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let att2: i64 = sqlx::query_scalar("SELECT id FROM attachments WHERE uuid_name = 'api-extra-1'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let att1: i64 =
+        sqlx::query_scalar("SELECT id FROM attachments WHERE uuid_name = 'api-extra-0'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let att2: i64 =
+        sqlx::query_scalar("SELECT id FROM attachments WHERE uuid_name = 'api-extra-1'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     // 创建
     let (status, body) = send(
@@ -104,7 +106,14 @@ async fn moments_list_detail_update() {
     assert_eq!(body["data"]["items"][0]["attachments"][0]["id"], att1);
 
     // 详情
-    let (status, body) = send(&app, Method::GET, &format!("/api/moments/{mid}"), Some(token), None).await;
+    let (status, body) = send(
+        &app,
+        Method::GET,
+        &format!("/api/moments/{mid}"),
+        Some(token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["data"]["content"], "API 测试说说");
 
@@ -167,7 +176,11 @@ async fn attachments_list_and_tags_create() {
              VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(format!("list-{i}"))
-        .bind(if i == 2 { "录像.mp4".to_string() } else { format!("图{i}.png") })
+        .bind(if i == 2 {
+            "录像.mp4".to_string()
+        } else {
+            format!("图{i}.png")
+        })
         .bind(if i == 2 { "video/mp4" } else { "image/png" })
         .bind(2048i64)
         .bind(if i == 2 { "video" } else { "image" })
@@ -178,7 +191,14 @@ async fn attachments_list_and_tags_create() {
     }
 
     // 附件列表：全部 + kind 过滤 + 关键词
-    let (status, body) = send(&app, Method::GET, "/api/attachments?page_size=10", Some(token), None).await;
+    let (status, body) = send(
+        &app,
+        Method::GET,
+        "/api/attachments?page_size=10",
+        Some(token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["data"]["total"], 3);
     let (status, body) = send(
@@ -232,7 +252,11 @@ async fn attachments_list_and_tags_create() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["data"]["id"].as_i64(), Some(id1), "同名应幂等返回同一条");
+    assert_eq!(
+        body["data"]["id"].as_i64(),
+        Some(id1),
+        "同名应幂等返回同一条"
+    );
     let (status, _) = send(
         &app,
         Method::POST,
@@ -254,7 +278,10 @@ async fn settings_themes_trails_read() {
     let (status, body) = send(&app, Method::GET, "/api/settings", Some(token), None).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
-        body["data"].as_object().map(|o| !o.is_empty()).unwrap_or(false),
+        body["data"]
+            .as_object()
+            .map(|o| !o.is_empty())
+            .unwrap_or(false),
         "settings 应返回键值: {body}"
     );
     let (status, _) = send(&app, Method::GET, "/api/settings", None, None).await;

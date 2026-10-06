@@ -10,7 +10,6 @@ use hancic::models::PostStatus;
 use hancic::services::posts;
 use sqlx::Row;
 
-
 /// 固定链接已改为系统生成的短 uuid，测试按标题反查文章 id。
 async fn find_by_title(pool: &db::Db, title: &str) -> Option<hancic::models::Post> {
     let id: i64 = sqlx::query_scalar("SELECT id FROM posts WHERE title = ?")
@@ -35,7 +34,11 @@ async fn create_publish_edit_delete_flow() {
     assert!(login_admin(&client, &addr).await);
 
     // 列表页拿 CSRF（顺带验证列表页可访问）
-    let res = client.get(format!("{base}/admin/posts")).send().await.unwrap();
+    let res = client
+        .get(format!("{base}/admin/posts"))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), 200);
     let html = res.text().await.unwrap();
     let csrf = extract_csrf(&html);
@@ -96,7 +99,10 @@ async fn create_publish_edit_delete_flow() {
     let html = res.text().await.unwrap();
     assert!(html.contains("管理端文章"), "编辑页应含标题");
     assert!(html.contains("# 正文"), "编辑页应含正文");
-    assert!(html.contains("milkdown.min.js"), "编辑页应引 milkdown 编辑器");
+    assert!(
+        html.contains("milkdown.min.js"),
+        "编辑页应引 milkdown 编辑器"
+    );
     assert!(html.contains("window._post"), "编辑页应输出 _post");
 
     // 删除 → 按 slug 查无
@@ -128,7 +134,11 @@ async fn autosave_updates_draft_content() {
     assert!(login_admin(&client, &addr).await);
 
     // 建一篇草稿
-    let html = client.get(format!("{base}/admin/posts")).send().await.unwrap();
+    let html = client
+        .get(format!("{base}/admin/posts"))
+        .send()
+        .await
+        .unwrap();
     let csrf = extract_csrf(&html.text().await.unwrap());
     let res = client
         .post(format!("{base}/admin/posts"))
@@ -234,7 +244,11 @@ async fn admin_posts_list_shows_like_count_column() {
     let base = format!("http://{addr}");
     assert!(login_admin(&client, &addr).await);
 
-    let html = client.get(format!("{base}/admin/posts")).send().await.unwrap();
+    let html = client
+        .get(format!("{base}/admin/posts"))
+        .send()
+        .await
+        .unwrap();
     let csrf = extract_csrf(&html.text().await.unwrap());
     let res = client
         .post(format!("{base}/admin/posts"))
@@ -272,7 +286,10 @@ async fn admin_posts_list_shows_like_count_column() {
         .await
         .unwrap();
     assert!(html.contains("点赞数"), "列表页应展示点赞数字段: {html}");
-    assert!(html.contains(">11<") || html.contains("11"), "列表页应展示点赞数 11: {html}");
+    assert!(
+        html.contains(">11<") || html.contains("11"),
+        "列表页应展示点赞数 11: {html}"
+    );
 }
 
 #[tokio::test]
@@ -286,7 +303,11 @@ async fn admin_posts_list_sorts_by_like_count_desc() {
     let base = format!("http://{addr}");
     assert!(login_admin(&client, &addr).await);
 
-    let html = client.get(format!("{base}/admin/posts")).send().await.unwrap();
+    let html = client
+        .get(format!("{base}/admin/posts"))
+        .send()
+        .await
+        .unwrap();
     let csrf = extract_csrf(&html.text().await.unwrap());
 
     for title in ["高赞文章", "低赞文章"] {
@@ -339,7 +360,10 @@ async fn admin_posts_list_sorts_by_like_count_desc() {
         .unwrap();
     let high_pos = html.find("高赞文章").expect("应包含高赞文章");
     let low_pos = html.find("低赞文章").expect("应包含低赞文章");
-    assert!(high_pos < low_pos, "like_count desc 应先显示高赞文章: {html}");
+    assert!(
+        high_pos < low_pos,
+        "like_count desc 应先显示高赞文章: {html}"
+    );
 }
 
 /// 文章管理列表默认显示全部类型（文章 + 页面）；type=post 仅显示文章。
@@ -355,10 +379,7 @@ async fn posts_list_defaults_to_all_types() {
     assert!(login_admin(&client, &addr).await);
 
     // seed：一篇文章 + 一个独立页面（直接写库，绕过 CSRF 流程）
-    for (title, post_type) in [
-        ("全部类型文章", "post"),
-        ("全部类型页面", "page"),
-    ] {
+    for (title, post_type) in [("全部类型文章", "post"), ("全部类型页面", "page")] {
         sqlx::query(
             "INSERT INTO posts(slug, title, content_md, status, post_type, published_at)
              VALUES (?, ?, 'x', 'published', ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
@@ -397,5 +418,8 @@ async fn posts_list_defaults_to_all_types() {
         .await
         .unwrap();
     assert!(html.contains("全部类型文章"), "type=post 应含文章: {html}");
-    assert!(!html.contains("全部类型页面"), "type=post 不应含页面: {html}");
+    assert!(
+        !html.contains("全部类型页面"),
+        "type=post 不应含页面: {html}"
+    );
 }

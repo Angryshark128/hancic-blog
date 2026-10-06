@@ -141,15 +141,12 @@ pub async fn summary(
     let total_moments: i64 = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM moments")
         .fetch_one(db)
         .await?;
-    let total_attachments: i64 =
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM attachments")
-            .fetch_one(db)
-            .await?;
+    let total_attachments: i64 = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM attachments")
+        .fetch_one(db)
+        .await?;
     // 趋势：取范围内 created_at 逐条按站点时区归属自然日（SQLite 无 IANA，应用层分组；
     // 个人博客量级逐行读取可接受）
-    let trend_sql = format!(
-        "SELECT created_at FROM page_views {where_sql} ORDER BY created_at"
-    );
+    let trend_sql = format!("SELECT created_at FROM page_views {where_sql} ORDER BY created_at");
     let mut trend_q = sqlx::query(&trend_sql);
     for b in &binds {
         trend_q = trend_q.bind(b);
@@ -253,7 +250,12 @@ pub async fn top_posts(
     let rows = q.fetch_all(db).await?;
     Ok(rows
         .iter()
-        .map(|r| (PostStatRow::from_row(r).expect("行结构匹配").into(), r.get("view_count")))
+        .map(|r| {
+            (
+                PostStatRow::from_row(r).expect("行结构匹配").into(),
+                r.get("view_count"),
+            )
+        })
         .collect())
 }
 
@@ -323,12 +325,7 @@ pub async fn clear_logs(db: &Db) -> AppResult<()> {
 /// `from`/`to` 为站点时区下的自然日：下界 = 该日 00:00（本地）对应的 UTC 时刻，
 /// 上界 = 次日 00:00（本地）对应的 UTC 时刻（开区间）。created_at 存 UTC ISO
 /// 字符串（`YYYY-MM-DDTHH:MM:SSZ`），字典序即时间序，直接按转换后的 UTC 串比较。
-fn range_filter(
-    col: &str,
-    from: Option<&str>,
-    to: Option<&str>,
-    tz: &Tz,
-) -> (String, Vec<String>) {
+fn range_filter(col: &str, from: Option<&str>, to: Option<&str>, tz: &Tz) -> (String, Vec<String>) {
     let (lower, upper) = crate::services::timezone::local_day_utc_bounds(from, to, tz);
     let mut conds: Vec<String> = Vec::new();
     let mut binds: Vec<String> = Vec::new();
@@ -407,17 +404,29 @@ mod tests {
 
     #[test]
     fn classify_platforms() {
-        assert_eq!(classify_referer("https://www.zhihu.com/question/1"), "zhihu");
-        assert_eq!(classify_referer("https://blog.csdn.net/abc/article/1"), "csdn");
+        assert_eq!(
+            classify_referer("https://www.zhihu.com/question/1"),
+            "zhihu"
+        );
+        assert_eq!(
+            classify_referer("https://blog.csdn.net/abc/article/1"),
+            "csdn"
+        );
         assert_eq!(classify_referer("https://juejin.cn/post/1"), "juejin");
         assert_eq!(classify_referer("https://weibo.com/u/123"), "weibo");
         assert_eq!(classify_referer("https://www.jianshu.com/p/abc"), "jianshu");
-        assert_eq!(classify_referer("https://github.com/Angryshark128/hancic-blog"), "github");
+        assert_eq!(
+            classify_referer("https://github.com/Angryshark128/hancic-blog"),
+            "github"
+        );
     }
 
     #[test]
     fn classify_search_engines() {
-        assert_eq!(classify_referer("https://www.google.com/search?q=x"), "google");
+        assert_eq!(
+            classify_referer("https://www.google.com/search?q=x"),
+            "google"
+        );
         assert_eq!(classify_referer("https://cn.bing.com/search?q=x"), "bing");
         assert_eq!(classify_referer("https://www.baidu.com/s?wd=x"), "baidu");
     }

@@ -2,6 +2,31 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.1.8] - 2026-10-07
+
+### 新增
+
+- **REST API 扩展：把原先只有后台 UI 才能做的操作补进 `/api`**，使 MCP（及任何 Bearer 客户端）能覆盖博客的绝大多数操作：
+  - 文章：`GET /api/posts` 新增 `type=post|page|all` 查询参数；创建/更新支持 `post_type`（`post` 文章 / `page` 独立页面）——此前列表与创建把类型硬编码为 `post`，独立页面（如「项目」页）既建不了也列不出来，只能按 id 读写。
+  - 附件：`DELETE /api/attachments/{id}`（删磁盘文件 + 记录，204）。
+  - 站点设置：`PATCH /api/settings` 局部更新（白名单 10 键，复用后台设置页校验）。
+  - 系统设置：新增 `GET` / `PATCH /api/system`（`theme_mode` / `timezone` / `date_format`）。
+  - 主题：`POST /api/themes/import`（上传 zip 安装）、`DELETE /api/themes/{name}`（卸载）。
+  - 轨迹：`POST /api/trails/import`（multipart 上传 GPX）、`PATCH` / `DELETE /api/trails/{id}`。
+  - 专栏：`POST /api/columns/reorder`、`POST /api/columns/{id}/posts/reorder`。
+  - 统计：`POST /api/stats/clear`（清空阅读明细）。
+  所有新端点复用 `require_admin_or_token`（Bearer token 或后台会话），删改类操作仍是「token 具备写权限」。
+
+- **MCP 工具随之上线至 47 个**（原 35）：新增 `update_settings` / `get_system_settings` / `update_system_settings` / `import_theme` / `uninstall_theme` / `import_trails` / `update_trail` / `delete_trail` / `delete_attachment` / `reorder_columns` / `reorder_column_posts` / `clear_stats`，并给 `list_posts` / `create_post` / `update_post` 加 `post_type`。`mcp/hancic_mcp.py` 与集中托管的 `hancic-mcp-server` 保持同步。
+
+### 变更
+
+- **帮助页**：MCP 段工具数 34 → 47，补上集中托管（`hancic-mcp-server`，一个 URL + Basic）接入方式；REST API 参考补齐上述新增端点。
+
+### 测试
+
+- 新增 `tests/api_extended.rs`（post_type 建/列/取、settings/system 写校验、stats 清零、专栏排序、附件删除、轨迹写鉴权）；`mcp/tests` 覆盖 `post_type` 参数。`cargo clippy --all-targets -- -D warnings` 干净，全量 `cargo test` 通过。
+
 ## [1.1.7] - 2026-09-26
 
 ### 修复

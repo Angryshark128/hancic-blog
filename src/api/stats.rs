@@ -1,7 +1,8 @@
-//! REST API 统计端点：GET /api/stats/summary。
+//! REST API 统计端点：GET /api/stats/summary、POST /api/stats/clear。
 //!
 //! `from`/`to` 为可选 `YYYY-MM-DD`（站点时区日期，当日边界）阅读明细范围；
 //! 缺省不设限；趋势按站点时区自然日分组。响应 `{data: StatsSummary}`。
+//! clear 清空阅读明细日志（不可恢复），对应后台仪表盘的「清理阅读日志」。
 
 use crate::AppState;
 use crate::api;
@@ -31,4 +32,15 @@ pub async fn summary(
     )
     .await?;
     Ok(Json(json!({ "data": summary })))
+}
+
+/// POST /api/stats/clear：清空阅读明细日志（不可恢复）。
+pub async fn clear(
+    State(state): State<AppState>,
+    session: Session,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    api::require_admin_or_token(&state, &session, &headers).await?;
+    stats::clear_logs(&state.db).await?;
+    Ok(Json(json!({ "data": { "ok": true } })))
 }

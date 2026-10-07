@@ -1,8 +1,9 @@
-//! REST API 附件：GET /api/attachments（列表，可筛选/分页）。
+//! REST API 附件：GET /api/attachments（列表，可筛选/分页）、DELETE /api/attachments/{id}。
 //!
 //! 列表参数：`kind`（image/video/file，缺省全部）、`order`（asc/desc，按时间）、
 //! `q`（文件名关键词）、`page` / `page_size`（默认 10，上限 100）。
 //! 附件内容经前台 `/uploads/{path}` 公开静态路径访问（`url` 字段）。
+//! 删除同时清理磁盘文件与数据库记录。
 
 use crate::AppState;
 use crate::api;
@@ -10,8 +11,8 @@ use crate::error::AppError;
 use crate::models::AttachmentKind;
 use crate::services::uploads;
 use axum::Json;
-use axum::extract::{Query, State};
-use axum::http::HeaderMap;
+use axum::extract::{Path, Query, State};
+use axum::http::{HeaderMap, StatusCode};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
@@ -66,4 +67,17 @@ pub async fn list(
     Ok(Json(
         json!({ "data": { "items": items, "total": total, "page": page, "page_size": page_size } }),
     ))
+}
+
+/// DELETE /api/attachments/{id}：删除附件（磁盘文件 + 数据库记录，成功 204）。
+pub async fn delete(
+    State(state): State<AppState>,
+    session: Session,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, AppError> {
+    api::require_admin_or_token(&state, &session, &headers).await?;
+    let uploads_dir = state.config.data_dir.join("uploads");
+    uploads::delete_attachment(&state.db, &uploads_dir, id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

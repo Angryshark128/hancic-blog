@@ -16,6 +16,7 @@ pub mod moments;
 pub mod posts;
 pub mod settings;
 pub mod stats;
+pub mod system;
 pub mod tags;
 pub mod themes;
 pub mod trails;
@@ -50,11 +51,21 @@ pub fn router() -> Router<AppState> {
                 .delete(moments::delete),
         )
         .route("/attachments", get(attachments::list))
-        .route("/settings", get(settings::get))
+        .route("/attachments/{id}", delete(attachments::delete))
+        .route("/settings", get(settings::get).patch(settings::update))
+        .route("/system", get(system::get).patch(system::update))
         .route("/themes", get(themes::list))
+        .route("/themes/import", post(themes::import))
         .route("/themes/{name}/activate", post(themes::activate))
+        .route("/themes/{name}", delete(themes::uninstall))
         .route("/trails", get(trails::list))
-        .route("/trails/{id}", get(trails::get))
+        .route("/trails/import", post(trails::import))
+        .route(
+            "/trails/{id}",
+            get(trails::get)
+                .patch(trails::update)
+                .delete(trails::delete),
+        )
         .route(
             "/categories",
             get(categories::list).post(categories::create),
@@ -66,6 +77,7 @@ pub fn router() -> Router<AppState> {
         .route("/tags", get(tags::list).post(tags::create))
         .route("/tags/{id}", delete(tags::delete))
         .route("/columns", get(columns::list).post(columns::create))
+        .route("/columns/reorder", post(columns::reorder))
         .route(
             "/columns/{id}",
             patch(columns::update).delete(columns::delete),
@@ -74,11 +86,13 @@ pub fn router() -> Router<AppState> {
             "/columns/{id}/posts",
             get(columns::list_posts).post(columns::add_post),
         )
+        .route("/columns/{id}/posts/reorder", post(columns::reorder_posts))
         .route(
             "/columns/{id}/posts/{post_id}",
             delete(columns::remove_post),
         )
         .route("/stats/summary", get(stats::summary))
+        .route("/stats/clear", post(stats::clear))
         .route("/backup", get(backup::backup))
 }
 

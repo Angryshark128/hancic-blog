@@ -89,6 +89,7 @@ curl -s -X POST https://example.com/api/posts \
 | `slug` | ❌ | 缺省由标题自动生成；重复时自动追加 `-2`、`-3`… |
 | `excerpt` | ❌ | 摘要；缺省自动截取正文 |
 | `status` | ❌ | `draft`（默认）或 `published`；发布即写 `published_at` |
+| `post_type` | ❌ | `post`（默认，普通文章）或 `page`（独立页面，如「关于」「项目」） |
 | `category_id` | ❌ | 必须指向存在的分类，否则 400 |
 | `tags` | ❌ | 字符串数组，自动建标签（同名复用） |
 
@@ -96,11 +97,12 @@ curl -s -X POST https://example.com/api/posts \
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://example.com/api/posts?page=1&page_size=10&status=published&category=tech&tag=ai"
+  "https://example.com/api/posts?page=1&page_size=10&status=published&category=tech&tag=ai&type=post"
 ```
 
 - `page`：从 1 起，默认 1；`page_size`：默认 10，上限 100
 - `status`：`draft` / `published`；`category` / `tag`：slug 精确匹配
+- `type`：`post`（缺省，普通文章）/ `page`（独立页面）/ `all`（全部）。**独立页面默认不在列表里**，需显式 `type=page` 或 `type=all` 才会出现。
 
 响应 `{data: {items: [Post...], total: N}}`，Post 结构与 3.1 相同（含 `content_md` 原文与 `views`）。
 
@@ -125,6 +127,7 @@ PATCH 语义：
 - 缺失字段**保持不变**
 - `"category_id": null` → **清空分类**；传整数则改分类（需存在）
 - `"excerpt": ""` 或 `"excerpt": null` → **清空摘要**
+- `"post_type": "page"` → 改类型为独立页面（或 `"post"` 改回普通文章）
 - `"status": "published"` 会写入 `published_at`（草稿 → 发布时）
 - `"published_at"`：可选 RFC3339 字符串 → 设值；`null` → 清空（回到草稿合法值）；缺省 → 不变。**显式值覆盖**「草稿 → 发布」自动设值。
 - `"updated_at"`：可选 RFC3339 字符串 → 设值。**传了就跳过自动刷 `Utc::now()`**，允许事后回填到非工作时间窗口。非法格式 → 400。
@@ -219,6 +222,14 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 - 响应 `{data: {items: [{id, kind, orig_name, mime, size, url, created_at}], total, page, page_size}}`；
   `url` 为前台公开地址，可直接用于文章正文 / 说说 `attachment_ids` 前的选取
 
+### 删除附件
+
+```bash
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://example.com/api/attachments/7
+```
+
+删除磁盘文件与数据库记录（成功 `204`）。
+
 ## 6. 分类（Categories）
 
 ```bash
@@ -285,6 +296,15 @@ curl -s -X POST https://example.com/api/columns/4/posts \
 # 把文章移出专栏（文章保留）
 curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
   https://example.com/api/columns/4/posts/42
+
+# 专栏排序（按 ids 顺序重写 sort_order）
+curl -s -X POST https://example.com/api/columns/reorder \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"ids": [4, 2, 7]}'
+# 专栏内文章排序（按 ids 顺序重写 column_sort）
+curl -s -X POST https://example.com/api/columns/4/posts/reorder \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"ids": [42, 51, 33]}'
 ```
 
 - 一篇文章可属于 0/1 个专栏（`posts.column_id`）；加入/移出不触碰文章其他字段
@@ -293,45 +313,84 @@ curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
 ## 9. 统计
 
 ```bash
+# 阅读汇总（总量 + 每日趋势）
 curl -s -H "Authorization: Bearer $TOKEN" \
   "https://example.com/api/stats/summary?from=2026-08-01&to=2026-08-09"
+# 清空阅读明细日志（不可恢复）
+curl -s -X POST -H "Authorization: Bearer $TOKEN" https://example.com/api/stats/clear
 ```
 
-响应 `{data: {total_views, total_posts, total_moments, total_attachments, trend: [{date, count}...]}}`。`from`/`to` 可选（UTC 日期）。
+响应 `{data: {total_views, total_posts, total_moments, total_attachments, trend: [{date, count}...]}}`。`from`/`to` 可选（站点时区日期）。
 
-## 10. 站点设置 / 主题 / 轨迹
+## 10. 站点设置 / 系统设置 / 主题 / 轨迹
 
-### 10.1 站点设置（只读）
+### 10.1 站点设置
 
 ```bash
+# 读取全部设置键值（站点名/描述/Logo/导航/社交/页脚文本等）
 curl -s -H "Authorization: Bearer $TOKEN" https://example.com/api/settings
+# 局部更新（只传要改的键，未传保持不变；返回更新后全量设置）
+curl -s -X PATCH https://example.com/api/settings \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"site_name": "寒蝉", "site_desc": "一个人的独白"}'
 ```
 
-返回全部设置键值（站点名/描述/Logo/导航/社交/页脚文本/主题模式等），无敏感凭据。
-写操作请走后台上传 / 设置页（表单校验）。
+- 可写白名单键：`site_name` / `site_desc` / `site_nav` / `site_social` / `social_logos` /
+  `site_logo` / `footer_text` / `friend_links` / `contact_enabled` / `contact_email`；
+  非白名单键被忽略，全部被忽略时 400。
+- `site_nav` / `site_social` / `social_logos` / `friend_links` 为 JSON 字符串；
+  校验规则与后台设置页一致（非法 JSON → 400）。
 
-### 10.2 主题
+### 10.2 系统设置
+
+```bash
+# 读取（theme_mode / timezone / date_format）
+curl -s -H "Authorization: Bearer $TOKEN" https://example.com/api/system
+# 局部更新
+curl -s -X PATCH https://example.com/api/system \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"theme_mode": "dark", "timezone": "Asia/Shanghai"}'
+```
+
+`theme_mode`：`auto`|`light`|`dark`；`timezone`：IANA 名（如 `Asia/Shanghai`）；
+`date_format`：`datetime`|`date`。改管理员密码仍走后台。
+
+### 10.3 主题
 
 ```bash
 # 列表（含 is_current）与当前主题
 curl -s -H "Authorization: Bearer $TOKEN" https://example.com/api/themes
+# 安装（上传主题 zip，multipart 字段名 theme）
+curl -s -X POST https://example.com/api/themes/import \
+  -H "Authorization: Bearer $TOKEN" -F "theme=@/path/to/theme.zip"
 # 切换（同名目录 + theme.toml 校验；404=不存在）
 curl -s -X POST -H "Authorization: Bearer $TOKEN" https://example.com/api/themes/default/activate
+# 卸载（不许卸载当前使用中的主题）
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://example.com/api/themes/old-theme
 ```
 
 切换写入 `settings.active_theme`，前台模板需重启服务后完全生效。
 
-### 10.3 徒步轨迹
+### 10.4 徒步轨迹
 
 ```bash
 # 列表（统计概览）
 curl -s -H "Authorization: Bearer $TOKEN" https://example.com/api/trails
+# 导入 GPX（multipart 字段名 files；可多次 -F "files=@..."）
+curl -s -X POST https://example.com/api/trails/import \
+  -H "Authorization: Bearer $TOKEN" -F "files=@/path/to/track.gpx"
 # 详情；加 with_coords=1 附完整坐标 [[lat, lon, speed], ...]
 curl -s -H "Authorization: Bearer $TOKEN" \
   "https://example.com/api/trails/3?with_coords=1"
+# 更新名称/描述（PATCH 部分字段）
+curl -s -X PATCH https://example.com/api/trails/3 \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "香山环线", "description": "秋天的香山"}'
+# 删除（清理 GPX + 坐标 JSON）
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://example.com/api/trails/3
 ```
 
-轨迹数据由后台「徒步轨迹」页上传 GPX 维护（本组端点只读）。
+导入返回 `{data: {imported: [...], imported_count, errors: [...]}}`（逐个导入，失败不中断其余）。
 
 ## 11. 健康检查
 
@@ -354,11 +413,30 @@ curl -s https://example.com/api/health
    - `5xx`：服务端异常，稍后重试并保留请求体。
 5. **幂等注意**：POST 无幂等键，重复提交会重复建文章；如需保证只建一次，先 `GET /api/posts?page=1&page_size=1&status=draft` 核对或事后清理。
 
-## 13. 将来 MCP 封装说明
+## 13. MCP 封装说明
 
-后续 MCP server 将基于本文档实现，映射约定：
+MCP server（`mcp/hancic_mcp.py`，及集中托管的 `hancic-mcp-server`）已基于本文档实现，
+当前共 **47 个工具**，与上文的 `/api/*` 端点一一对应：
 
-- 每个端点 → 一个 tool（`create_post`、`list_posts`、`get_post`、`update_post`、`delete_post`、`create_moment`、`delete_moment`、`upload_attachment`、`list_categories`、`create_category`、`update_category`、`delete_category`、`list_tags`、`delete_tag`、`list_columns`、`create_column`、`update_column`、`delete_column`、`list_column_posts`、`add_post_to_column`、`remove_post_from_column`、`stats_summary`、`health`、`list_moments`、`get_moment`、`update_moment`、`list_attachments`、`create_tag`、`get_settings`、`list_themes`、`activate_theme`、`list_trails`、`get_trail`（2026-09-06 已全部落地为 MCP 工具，共 34 个））
-- 鉴权：Token 存于 MCP server 环境变量（如 `HANCIC_TOKEN`），所有请求统一注入 `Authorization` 头，不暴露给调用方
-- 入参校验在 tool 层做（title 非空、status 枚举、category_id 存在性），把 400 提前转成 tool 参数错误，减少对服务端的无效请求
-- 发布文章最佳实践（第 9 节）固化为一个组合 tool：`publish_article`（可传图 → 建草稿 → 补充字段 → 发布），对 AI 调用者提供"一步发布"体验
+- 文章：`list_posts`（`post_type=post|page|all`）/ `get_post` / `create_post` /
+  `update_post` / `delete_post` / `set_post_timestamps`
+- 说说：`list_moments` / `get_moment` / `create_moment` / `update_moment` / `delete_moment`
+- 分类/标签：`list_categories` / `create_category` / `update_category` / `delete_category` /
+  `list_tags` / `create_tag` / `delete_tag`
+- 专栏：`list_columns` / `create_column` / `update_column` / `delete_column` /
+  `list_column_posts` / `add_post_to_column` / `remove_post_from_column` /
+  `reorder_columns` / `reorder_column_posts`
+- 附件：`list_attachments` / `upload_attachment` / `delete_attachment`
+- 站点/系统设置：`get_settings` / `update_settings` / `get_system_settings` / `update_system_settings`
+- 主题：`list_themes` / `activate_theme` / `import_theme` / `uninstall_theme`
+- 轨迹：`list_trails` / `get_trail` / `import_trails` / `update_trail` / `delete_trail`
+- 统计/备份/健康：`get_stats` / `clear_stats` / `get_backup` / `get_health`
+
+映射约定：
+
+- 鉴权：Token 存于 MCP server 环境变量（`HANCIC_API_TOKEN`），所有请求统一注入
+  `Authorization` 头，不暴露给调用方
+- 入参校验在 tool 层做（title 非空、status 枚举、category_id 存在性），把 400 提前转成
+  tool 参数错误，减少对服务端的无效请求
+- 高危运维操作（备份恢复、站点迁移、改管理员密码、API Token 管理）仍走后台，不暴露为工具
+- 发布文章最佳实践（第 12 节）可由调用方组合步骤，或后续固化为 `publish_article` 组合工具

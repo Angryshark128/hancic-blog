@@ -64,19 +64,27 @@ codex mcp add hancic -- \
 
 ## 工具清单
 
-文章：`list_posts` / `get_post` / `create_post` / `update_post` / `delete_post`
+文章：`list_posts`（`post_type=post/page/all`）/ `get_post` / `create_post` /
+`update_post` / `delete_post` / `set_post_timestamps`
 
 > `list_posts` 只返回文章摘要，不包含 `content_md`；需要正文时用 `get_post`。
+> 独立页面（`post_type=page`）默认不出现在列表里，用 `list_posts(post_type="page")`
+> 或 `list_posts(post_type="all")` 查看。
 说说：`list_moments` / `get_moment` / `create_moment` / `update_moment` / `delete_moment`
 分类 / 标签：`list_categories` / `create_category` / `update_category` / `delete_category` /
 `list_tags` / `create_tag` / `delete_tag`
 专栏：`list_columns` / `create_column` / `update_column` / `delete_column` /
-`list_column_posts` / `add_post_to_column` / `remove_post_from_column`
-附件：`list_attachments` / `upload_attachment`
-统计 / 设置 / 主题 / 轨迹 / 系统：`get_stats` / `get_settings` / `list_themes` /
-`activate_theme` / `list_trails` / `get_trail` / `get_backup` / `get_health`
+`list_column_posts` / `add_post_to_column` / `remove_post_from_column` /
+`reorder_columns` / `reorder_column_posts`
+附件：`list_attachments` / `upload_attachment` / `delete_attachment`
+站点 / 系统设置：`get_settings` / `update_settings` / `get_system_settings` / `update_system_settings`
+主题：`list_themes` / `activate_theme` / `import_theme` / `uninstall_theme`
+轨迹：`list_trails` / `get_trail` / `import_trails` / `update_trail` / `delete_trail`
+统计 / 备份 / 健康：`get_stats` / `clear_stats` / `get_backup` / `get_health`
 
-共 34 个工具。
+共 47 个工具。
 
-> 注意：token 具备写权限（可删除内容/下载全量备份）。给 AI 用时注意保管；
+> 集中托管部署（只填一个 URL，免本机装 Python）见站点后台「帮助」页的 MCP 段。
+
+> 注意：token 具备写权限（可删除内容/下载全量备份/改站点设置）。给 AI 用时注意保管；
 > 如需只读，可在 hancic 后台吊销后按需生成，或等待后续版本支持 token 权限范围。

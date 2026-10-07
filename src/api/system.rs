@@ -1,8 +1,7 @@
-//! REST API 站点设置：GET /api/settings（只读全量键值）、PATCH /api/settings（局部更新）。
+//! REST API 系统设置：GET /api/system、PATCH /api/system。
 //!
-//! 设置表保存前台渲染所需的站点信息（名称/描述/Logo/导航/社交/页脚等），
-//! 无敏感凭据（登录密码在独立的 auth 表，不在此）。写接口只接受白名单键，
-//! 复用后台设置页的校验逻辑；缺失键保持原值，避免误清空。
+//! 系统级设置（主题模式 / 时区 / 日期格式）的白名单读写，复用后台「系统设置」页
+//! 的校验逻辑。改管理员密码属于高敏操作，仍走后台页面，不在此暴露。
 
 use crate::AppState;
 use crate::api;
@@ -16,32 +15,21 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use tower_sessions::Session;
 
-/// 可写的站点设置键（与后台设置页表单一致）。
-const WRITABLE_KEYS: [&str; 10] = [
-    "site_name",
-    "site_desc",
-    "site_nav",
-    "site_social",
-    "social_logos",
-    "site_logo",
-    "footer_text",
-    "friend_links",
-    "contact_enabled",
-    "contact_email",
-];
+/// 可写的系统设置键（与后台系统设置页表单一致）。
+const WRITABLE_KEYS: [&str; 3] = ["theme_mode", "timezone", "date_format"];
 
-/// GET /api/settings：全部站点设置（键值 Map）。
+/// GET /api/system：当前系统设置（白名单键值）。
 pub async fn get(
-    state: axum::extract::State<AppState>,
+    State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
     api::require_admin_or_token(&state, &session, &headers).await?;
-    let map = settings::all(&state.db).await?;
+    let map = settings::get_many(&state.db, &WRITABLE_KEYS).await?;
     Ok(Json(json!({ "data": map })))
 }
 
-/// PATCH /api/settings：局部更新白名单内的键（值统一按字符串处理，缺失键不变）。
+/// PATCH /api/system：局部更新白名单内的键（缺失键不变）。
 pub async fn update(
     State(state): State<AppState>,
     session: Session,
@@ -53,7 +41,6 @@ pub async fn update(
     let obj = body
         .as_object()
         .ok_or_else(|| AppError::BadRequest("请求体必须是 JSON 对象".into()))?;
-    // 收集白名单内的键（值转字符串，trim 后写入——与后台保存口径一致）
     let mut form: HashMap<String, String> = HashMap::new();
     for key in WRITABLE_KEYS {
         if let Some(v) = obj.get(key) {
@@ -71,13 +58,13 @@ pub async fn update(
             WRITABLE_KEYS.join(", ")
         )));
     }
-    let errors = crate::admin::settings::validate(&form);
+    let errors = crate::admin::system::validate(&form);
     if !errors.is_empty() {
         return Err(AppError::BadRequest(errors.join("；")));
     }
     for (key, value) in &form {
         settings::set(&state.db, key, value).await?;
     }
-    let map = settings::all(&state.db).await?;
+    let map = settings::get_many(&state.db, &WRITABLE_KEYS).await?;
     Ok(Json(json!({ "data": map })))
 }

@@ -9,20 +9,42 @@ Claude Code / Codex / Kimi Code 等 AI 客户端调用。
     若反代有子路径（/blog → 本机 hancic），则填 https://example.com/blog。
 API 固定挂在 <base>/api 下（hancic 内部 base_path 不影响 API 路由）。
 
-运行：python hancic_mcp.py（stdio transport，供 MCP 客户端拉起）
+运行：`HANCIC_MCP_TRANSPORT` 选 stdio（默认，客户端拉起）/ streamable-http / sse；
+HTTP 模式另可配 `HANCIC_MCP_HOST`（默认 127.0.0.1）与 `HANCIC_MCP_PORT`（默认 8001）。
+HTTP 端点固定为根路径 `/mcp`（FastMCP 默认），如 streamable-http → http://<host>:<port>/mcp。
+反代场景须把公网 Host 加进 `HANCIC_MCP_ALLOWED_HOSTS`（逗号分隔），否则被 DNS-rebinding
+保护挡成 421（FastMCP 默认只放行 127.0.0.1/localhost）。
 """
 
 import os
 import sys
 import tempfile
+from typing import Literal, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 BASE_URL = os.environ.get("HANCIC_BASE_URL", "http://127.0.0.1:8096").rstrip("/")
 TOKEN = os.environ.get("HANCIC_API_TOKEN", "")
 
-mcp = FastMCP("hancic")
+TRANSPORT: Literal["stdio", "sse", "streamable-http"] = os.environ.get("HANCIC_MCP_TRANSPORT", "stdio")  # type: ignore[assignment]
+SSE_HOST = os.environ.get("HANCIC_MCP_HOST", "127.0.0.1")
+SSE_PORT = int(os.environ.get("HANCIC_MCP_PORT", "8001"))
+
+# 反代（bj hancic-nginx → sh:8095）下 Host 是公网域名，FastMCP 的 DNS-rebinding
+# 保护默认只认 127.0.0.1/localhost，会回 421。用环境变量显式放行公网 Host。
+_ALLOWED_HOSTS = [h.strip() for h in os.environ.get("HANCIC_MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+_TRANSPORT_SECURITY = (
+    TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*", *_ALLOWED_HOSTS],
+    )
+    if _ALLOWED_HOSTS
+    else None
+)
+
+mcp = FastMCP("hancic", host=SSE_HOST, port=SSE_PORT, transport_security=_TRANSPORT_SECURITY)
 
 
 class ApiError(Exception):
@@ -47,6 +69,35 @@ def _request(method: str, path: str, **kwargs) -> httpx.Response:
     return resp.json().get("data", resp.json())
 
 
+def _auth_headers() -> dict:
+    return {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+
+
+def _upload_multipart(path: str, files: list[tuple[str, str]], fields: dict | None = None) -> dict:
+    """POST multipart 上传；files 为 [(字段名, 本地文件路径)]，fields 为附带的文本字段。"""
+    opened = []
+    try:
+        for field_name, file_path in files:
+            if not os.path.isfile(file_path):
+                raise ApiError(f"文件不存在：{file_path}")
+            opened.append((field_name, (os.path.basename(file_path), open(file_path, "rb"))))
+        payload = {k: (None, v) for k, v in (fields or {}).items()}
+        payload.update(opened)
+        resp = httpx.post(f"{BASE_URL}/api{path}", headers=_auth_headers(), files=payload, timeout=120)
+    finally:
+        for _, (_, fh) in opened:
+            fh.close()
+    if resp.status_code >= 400:
+        try:
+            err = resp.json().get("error", {}).get("message", resp.text)
+        except Exception:
+            err = resp.text[:200]
+        raise ApiError(f"HTTP {resp.status_code}：{err}")
+    if resp.status_code == 204:
+        return {"ok": True}
+    return resp.json().get("data", resp.json())
+
+
 # ---------------- 读 ----------------
 
 def _strip_post_content(payload: dict) -> dict:
@@ -59,13 +110,14 @@ def _strip_post_content(payload: dict) -> dict:
     return payload
 
 
-@mcp.tool(description="文章列表（分页，可按状态/分类/标签筛选；不返回正文）")
+@mcp.tool(description="文章列表（分页，可按状态/分类/标签/类型筛选；不返回正文）。post_type: post(默认，普通文章) / page(独立页面) / all(全部)")
 def list_posts(
     page: int = 1,
     page_size: int = 10,
     status: str = "",
     category: str = "",
     tag: str = "",
+    post_type: str = "",
 ) -> dict:
     params = {"page": page, "page_size": page_size}
     if status:
@@ -74,6 +126,7 @@ def list_posts(
         params["category"] = category
     if tag:
         params["tag"] = tag
+    params["type"] = post_type or "post"
     return _strip_post_content(_request("GET", "/posts", params=params))
 
 
@@ -116,7 +169,7 @@ def get_health() -> dict:
 
 # ---------------- 写 ----------------
 
-@mcp.tool(description="创建文章（title/content_md 必填；status: draft|published，默认草稿）")
+@mcp.tool(description="创建文章（title/content_md 必填；status: draft|published，默认草稿；post_type: post 文章|page 独立页面，默认 post）")
 def create_post(
     title: str,
     content_md: str,
@@ -125,8 +178,11 @@ def create_post(
     slug: str = "",
     category_id: int = 0,
     tags: list = None,
+    post_type: str = "post",
 ) -> dict:
     body = {"title": title, "content_md": content_md, "status": status}
+    if post_type:
+        body["post_type"] = post_type
     if excerpt:
         body["excerpt"] = excerpt
     if slug:
@@ -138,7 +194,7 @@ def create_post(
     return _request("POST", "/posts", json=body)
 
 
-@mcp.tool(description="更新文章（PATCH：只传要改的字段；category_id=0 或 excerpt=\"\" 清空对应项；published_at/updated_at 接受 RFC3339 字符串用于事后回填，传 updated_at 时跳过自动刷新）")
+@mcp.tool(description="更新文章（PATCH：只传要改的字段；category_id=0 或 excerpt=\"\" 清空对应项；post_type 可改 post|page；published_at/updated_at 接受 RFC3339 字符串用于事后回填，传 updated_at 时跳过自动刷新）")
 def update_post(
     post_id: int,
     title: str = "",
@@ -150,6 +206,7 @@ def update_post(
     tags: list = None,
     published_at: str = "",
     updated_at: str = "",
+    post_type: str = "",
 ) -> dict:
     body = {}
     if title:
@@ -158,6 +215,8 @@ def update_post(
         body["content_md"] = content_md
     if status:
         body["status"] = status
+    if post_type:
+        body["post_type"] = post_type
     if excerpt is not None:
         body["excerpt"] = excerpt if excerpt else None
     if slug:
@@ -294,18 +353,13 @@ def remove_post_from_column(column_id: int, post_id: int) -> dict:
 
 @mcp.tool(description="上传附件（multipart，字段名 files）；返回附件 id/path，可用于说说 attachment_ids 或文章引用")
 def upload_attachment(file_path: str) -> dict:
-    if not os.path.isfile(file_path):
-        raise ApiError(f"文件不存在：{file_path}")
-    with open(file_path, "rb") as f:
-        resp = httpx.post(
-            f"{BASE_URL}/api/uploads",
-            headers={"Authorization": f"Bearer {TOKEN}"} if TOKEN else {},
-            files={"files": (os.path.basename(file_path), f)},
-            timeout=120,
-        )
-    if resp.status_code >= 400:
-        raise ApiError(f"HTTP {resp.status_code}：上传失败")
-    return resp.json().get("data", resp.json())
+    return _upload_multipart("/uploads", [("files", file_path)])
+
+
+@mcp.tool(description="删除附件（磁盘文件 + 记录，不可恢复）")
+def delete_attachment(attachment_id: int) -> dict:
+    _request("DELETE", f"/attachments/{attachment_id}")
+    return {"ok": True, "attachment_id": attachment_id}
 
 
 # ---------------- 补充端点（2026-09-06 新增 REST API） ----------------
@@ -372,9 +426,59 @@ def create_tag(name: str) -> dict:
     return _request("POST", "/tags", json={"name": name})
 
 
-@mcp.tool(description="读取站点设置（全量键值，只读；写操作走后台）")
+@mcp.tool(description="读取站点设置（全量键值，只读）")
 def get_settings() -> dict:
     return _request("GET", "/settings")
+
+
+@mcp.tool(description="更新站点设置（只传要改的字段，未传的保持不变；传空串可清空；返回更新后全量设置）。site_nav/site_social/social_logos/friend_links 为 JSON 字符串；contact_enabled 为 1/0")
+def update_settings(
+    site_name: Optional[str] = None,
+    site_desc: Optional[str] = None,
+    site_nav: Optional[str] = None,
+    site_social: Optional[str] = None,
+    social_logos: Optional[str] = None,
+    site_logo: Optional[str] = None,
+    footer_text: Optional[str] = None,
+    friend_links: Optional[str] = None,
+    contact_enabled: Optional[str] = None,
+    contact_email: Optional[str] = None,
+) -> dict:
+    candidates = {
+        "site_name": site_name,
+        "site_desc": site_desc,
+        "site_nav": site_nav,
+        "site_social": site_social,
+        "social_logos": social_logos,
+        "site_logo": site_logo,
+        "footer_text": footer_text,
+        "friend_links": friend_links,
+        "contact_enabled": contact_enabled,
+        "contact_email": contact_email,
+    }
+    body = {k: v for k, v in candidates.items() if v is not None}
+    if not body:
+        raise ApiError("至少提供一个要更新的设置字段")
+    return _request("PATCH", "/settings", json=body)
+
+
+@mcp.tool(description="读取系统设置（theme_mode 主题模式 / timezone 时区 / date_format 日期格式）")
+def get_system_settings() -> dict:
+    return _request("GET", "/system")
+
+
+@mcp.tool(description="更新系统设置（PATCH：theme_mode=auto|light|dark；timezone=IANA 名如 Asia/Shanghai；date_format=datetime|date）")
+def update_system_settings(theme_mode: str = "", timezone: str = "", date_format: str = "") -> dict:
+    body = {}
+    if theme_mode:
+        body["theme_mode"] = theme_mode
+    if timezone:
+        body["timezone"] = timezone
+    if date_format:
+        body["date_format"] = date_format
+    if not body:
+        raise ApiError("至少提供一个字段：theme_mode / timezone / date_format")
+    return _request("PATCH", "/system", json=body)
 
 
 @mcp.tool(description="已安装主题列表（含 is_current 与当前主题）")
@@ -385,6 +489,17 @@ def list_themes() -> dict:
 @mcp.tool(description="切换主题为当前（需重启服务后前台完全生效；404=主题不存在）")
 def activate_theme(name: str) -> dict:
     return _request("POST", f"/themes/{name}/activate", json={})
+
+
+@mcp.tool(description="安装主题（上传主题 zip，multipart 字段名 theme；需重启服务后可用）")
+def import_theme(zip_path: str) -> dict:
+    return _upload_multipart("/themes/import", [("theme", zip_path)])
+
+
+@mcp.tool(description="卸载主题（不许卸载当前使用中的主题，不可恢复）")
+def uninstall_theme(name: str) -> dict:
+    _request("DELETE", f"/themes/{name}")
+    return {"ok": True, "name": name}
 
 
 @mcp.tool(description="徒步轨迹列表（里程/爬升/时长等统计概览）")
@@ -398,7 +513,58 @@ def get_trail(trail_id: int, with_coords: bool = False) -> dict:
     return _request("GET", f"/trails/{trail_id}", params=params)
 
 
+@mcp.tool(description="导入 GPX 轨迹（multipart，字段名 files；name/description 可选覆盖默认名称与描述；返回每条导入结果与错误）")
+def import_trails(file_paths: list, name: str = "", description: str = "") -> dict:
+    fields = {}
+    if name:
+        fields["name"] = name
+    if description:
+        fields["description"] = description
+    return _upload_multipart("/trails/import", [("files", p) for p in file_paths], fields)
+
+
+@mcp.tool(description="更新轨迹名称/描述（PATCH：只传要改的字段，缺失不变）")
+def update_trail(trail_id: int, name: str = "", description: str = "") -> dict:
+    body = {}
+    if name:
+        body["name"] = name
+    if description:
+        body["description"] = description
+    if not body:
+        raise ApiError("至少提供一个字段：name 或 description")
+    return _request("PATCH", f"/trails/{trail_id}", json=body)
+
+
+@mcp.tool(description="删除轨迹（磁盘 GPX + 坐标 + 记录，不可恢复）")
+def delete_trail(trail_id: int) -> dict:
+    _request("DELETE", f"/trails/{trail_id}")
+    return {"ok": True, "trail_id": trail_id}
+
+
+@mcp.tool(description="专栏排序（按传入 id 顺序重写 sort_order）")
+def reorder_columns(ids: list) -> dict:
+    if not ids:
+        raise ApiError("ids 不能为空")
+    return _request("POST", "/columns/reorder", json={"ids": ids})
+
+
+@mcp.tool(description="专栏内文章排序（按传入文章 id 顺序重写 column_sort）")
+def reorder_column_posts(column_id: int, ids: list) -> dict:
+    if not ids:
+        raise ApiError("ids 不能为空")
+    return _request("POST", f"/columns/{column_id}/posts/reorder", json={"ids": ids})
+
+
+@mcp.tool(description="清空阅读明细统计日志（不可恢复）")
+def clear_stats() -> dict:
+    return _request("POST", "/stats/clear")
+
+
 if __name__ == "__main__":
     if not TOKEN:
         print("警告：未设置 HANCIC_API_TOKEN，写操作将失败（只读工具可用）", file=sys.stderr)
-    mcp.run(transport="stdio")
+    if TRANSPORT == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        mcp.settings.host = "0.0.0.0"  # noqa: SLF001
+        mcp.run(transport=TRANSPORT)

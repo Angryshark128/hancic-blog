@@ -235,6 +235,44 @@ pub async fn remove_post(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// POST /api/columns/reorder：按传入 `ids` 顺序重写专栏 sort_order（1..n）。
+pub async fn reorder(
+    State(state): State<AppState>,
+    session: Session,
+    headers: HeaderMap,
+    body: Result<Json<Value>, JsonRejection>,
+) -> Result<Json<Value>, AppError> {
+    api::require_admin_or_token(&state, &session, &headers).await?;
+    let body = api::valid_json(body)?;
+    let ids = parse_id_array(&body, "ids")?;
+    if ids.is_empty() {
+        return Err(AppError::BadRequest("ids 不能为空".into()));
+    }
+    columns::reorder_columns(&state.db, &ids).await?;
+    Ok(Json(json!({ "data": { "ok": true, "ids": ids } })))
+}
+
+/// POST /api/columns/{id}/posts/reorder：重写专栏内文章 posts.column_sort（0..n）。
+pub async fn reorder_posts(
+    State(state): State<AppState>,
+    session: Session,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+    body: Result<Json<Value>, JsonRejection>,
+) -> Result<Json<Value>, AppError> {
+    api::require_admin_or_token(&state, &session, &headers).await?;
+    columns::get_column_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("专栏不存在".into()))?;
+    let body = api::valid_json(body)?;
+    let ids = parse_id_array(&body, "ids")?;
+    if ids.is_empty() {
+        return Err(AppError::BadRequest("ids 不能为空".into()));
+    }
+    posts::reorder_column_posts(&state.db, &ids).await?;
+    Ok(Json(json!({ "data": { "ok": true, "ids": ids } })))
+}
+
 // ---------- 请求体辅助（与 categories.rs/posts.rs 同款约定） ----------
 
 /// 字段必须为非空字符串，否则 400。
@@ -277,4 +315,18 @@ fn parse_int_param(
             .parse::<i64>()
             .map_err(|_| AppError::BadRequest(format!("{key} 必须是整数"))),
     }
+}
+
+/// 读取 `key` 字段的整数数组（缺失或非数组 → 400）。
+fn parse_id_array(body: &Value, key: &str) -> Result<Vec<i64>, AppError> {
+    let arr = body
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::BadRequest(format!("{key} 必须是整数数组")))?;
+    arr.iter()
+        .map(|v| {
+            v.as_i64()
+                .ok_or_else(|| AppError::BadRequest(format!("{key} 必须是整数数组")))
+        })
+        .collect()
 }

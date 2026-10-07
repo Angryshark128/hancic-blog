@@ -2,7 +2,9 @@
 //!
 //! 请求体为 JSON 对象，字段可选性按各端点契约：
 //! - 创建必填 `title`（非空）、`content_md`（存在）；`status` 限 `draft`/`published`；
-//!   `category_id` 若提供必须指向存在的分类（否则 400）。
+//!   `post_type` 限 `post`/`page`（缺省 `post`）；`category_id` 若提供必须指向存在的
+//!   分类（否则 400）。
+//! - 列表 `type` 查询参数：`post`（缺省）/ `page` / `all`，控制返回的文章类型。
 //! - 更新为 PATCH 语义：缺失字段不变；`"category_id": null` 清空分类、
 //!   `"excerpt": ""` 或 `null` 清空摘要（对应服务层 `Option<Option<T>>` 约定）。
 //!
@@ -49,11 +51,22 @@ pub async fn list(
     let page = parse_int_param(&query, "page", 1)?.max(1);
     let page_size = parse_int_param(&query, "page_size", 10)?.clamp(1, 100);
     let status = parse_status_opt(query.get("status").map(String::as_str))?;
+    // type 筛选：post（默认）/ page / all（不限类型，列表可见独立页面）
+    let post_type = match query.get("type").map(String::as_str) {
+        Some("all") | Some("") => None,
+        Some("page") => Some(PostType::Page),
+        Some("post") | None => Some(PostType::Post),
+        Some(other) => {
+            return Err(AppError::BadRequest(format!(
+                "type 只能是 post/page/all，收到: {other}"
+            )));
+        }
+    };
     let (items, total) = service::list_posts(
         &state.db,
         service::PostListOptions {
             status,
-            post_type: Some(PostType::Post),
+            post_type,
             category_slug: query.get("category").filter(|s| !s.is_empty()).cloned(),
             tag_slug: query.get("tag").filter(|s| !s.is_empty()).cloned(),
             column_slug: None,
@@ -164,7 +177,7 @@ async fn parse_new_post(state: &AppState, body: &Value) -> Result<service::NewPo
         excerpt,
         slug,
         status,
-        post_type: PostType::Post,
+        post_type: parse_post_type_opt(opt_str(body, "post_type"))?.unwrap_or(PostType::Post),
         category_id,
         column_id: None, // 专栏由后台编辑页维护，API 暂不暴露
         tags,
@@ -227,13 +240,25 @@ async fn parse_update_post(
         excerpt,
         slug,
         status,
-        post_type: None,
+        post_type: parse_post_type_opt(opt_str(body, "post_type"))?,
         category_id,
         column_id: None, // 专栏由后台编辑页维护，API 暂不暴露
         tags,
         published_at,
         updated_at,
     })
+}
+
+/// `post_type` 字符串 → 枚举；缺失放行（创建默认 post、更新不变），非法值 400。
+fn parse_post_type_opt(s: Option<&str>) -> Result<Option<PostType>, AppError> {
+    match s {
+        None => Ok(None),
+        Some("post") => Ok(Some(PostType::Post)),
+        Some("page") => Ok(Some(PostType::Page)),
+        Some(other) => Err(AppError::BadRequest(format!(
+            "post_type 只能是 post 或 page，收到: {other}"
+        ))),
+    }
 }
 
 /// `status` 字符串 → 枚举；`None` 放行（默认/不变），非法值 400。

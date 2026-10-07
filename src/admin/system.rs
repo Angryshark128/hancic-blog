@@ -247,7 +247,8 @@ async fn render(
 // ---------- 校验 ----------
 
 /// 校验系统设置表单（仅校验出现的字段）。
-fn validate(form: &HashMap<String, String>) -> Vec<String> {
+/// `pub(crate)`：REST `/api/system` 写接口复用同一套校验。
+pub(crate) fn validate(form: &HashMap<String, String>) -> Vec<String> {
     let mut errors = Vec::new();
     if let Some(theme_mode) = form.get("theme_mode") {
         if !THEME_MODES.contains(&theme_mode.as_str()) {

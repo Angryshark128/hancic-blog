@@ -30,9 +30,28 @@ class ListPostsSummaryTest(unittest.TestCase):
             hancic_mcp._request = original
 
         self.assertEqual(seen["path"], "/posts")
-        self.assertEqual(seen["params"], {"page": 2, "page_size": 5, "category": "科技"})
+        self.assertEqual(
+            seen["params"],
+            {"page": 2, "page_size": 5, "category": "科技", "type": "post"},
+        )
         self.assertNotIn("content_md", result["items"][0])
         self.assertNotIn("content_md", result["items"][1])
+
+    def test_list_posts_post_type_param(self):
+        seen = {}
+
+        def fake_request(method, path, **kwargs):
+            seen["params"] = kwargs.get("params")
+            return {"items": [], "total": 0}
+
+        original = hancic_mcp._request
+        hancic_mcp._request = fake_request
+        try:
+            hancic_mcp.list_posts(post_type="page")
+        finally:
+            hancic_mcp._request = original
+
+        self.assertEqual(seen["params"]["type"], "page")
 
 
 if __name__ == "__main__":

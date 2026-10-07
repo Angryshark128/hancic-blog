@@ -164,7 +164,8 @@ async fn render(
 
 /// 校验设置表单，返回错误列表（空表示全部通过）。
 /// 仅校验表单中出现的字段（设置页拆为多个独立表单，各自提交部分字段）。
-fn validate(form: &HashMap<String, String>) -> Vec<String> {
+/// `pub(crate)`：REST `/api/settings` 写接口复用同一套校验。
+pub(crate) fn validate(form: &HashMap<String, String>) -> Vec<String> {
     let mut errors = Vec::new();
     if let Some(site_name) = form.get("site_name") {
         if site_name.trim().is_empty() {

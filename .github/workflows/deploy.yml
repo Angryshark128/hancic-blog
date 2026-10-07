@@ -18,7 +18,16 @@ name: Deploy
 # 必须先把本文件合并进 main，再打 tag，否则那次 tag 不会触发任何东西。
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false   # 半途取消一次发布比排队更糟（镜像/镜像搬运可能只做了一半）
+
+permissions:
+  contents: read
 
 jobs:
   test:
